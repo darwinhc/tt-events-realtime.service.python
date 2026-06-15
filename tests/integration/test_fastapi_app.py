@@ -1,0 +1,589 @@
+"""FastAPI inbound-adapter integration tests."""
+
+import logging
+
+from fastapi.testclient import TestClient
+
+from src.application import build_application
+from src.domain.dtos import EventFilters, EventQuery
+from src.domain.entities import Location
+from src.entrypoints.admon.fastapi_app import (
+    create_fastapi_app as create_admon_app,
+)
+from src.entrypoints.users.fastapi_app import create_fastapi_app
+from src.infra.config import Settings
+
+
+def build_test_settings(database_url: str) -> Settings:
+    return Settings(
+        app_name="events-service",
+        environment="test",
+        database_url=database_url,
+        sqlalchemy_echo=False,
+        log_level="ERROR",
+        log_format="json",
+        cloudwatch_enabled=False,
+        cloudwatch_group="/tests/events-service",
+        cloudwatch_stream="test",
+        aws_region="eu-central-1",
+    )
+
+
+def test_creates_event_with_internal_identity_and_embedded_location(
+    tmp_path,
+) -> None:
+    application = build_application(
+        build_test_settings(f"sqlite:///{tmp_path / 'events.db'}")
+    )
+    client = TestClient(create_fastapi_app(application))
+
+    event_response = client.post(
+        "/events",
+        headers={"Authorization": "Bearer darwin"},
+        json={
+            "title": "Realtime Systems Meetup",
+            "scheduled_at": None,
+            "duration_in_minutes": 105,
+            "location": {
+                "name": "Main Hall",
+                "coordinates": {
+                    "latitude": 52.5219,
+                    "longitude": 13.4132,
+                },
+            },
+        },
+    )
+
+    assert event_response.status_code == 201
+    assert event_response.json()["scheduled_at"] is None
+    assert event_response.json()["duration_in_minutes"] == 105
+    assert event_response.json()["organizer"] == "darwin"
+    assert event_response.json()["status"] == "active"
+    assert event_response.json()["canceled_at"] is None
+    assert event_response.json()["deletion_scheduled_at"] is None
+
+    cancel_response = client.post(
+        f"/events/{event_response.json()['id']}/cancel",
+        headers={"Authorization": "Bearer darwin"},
+    )
+
+    assert cancel_response.status_code == 200
+    assert cancel_response.json()["status"] == "canceled"
+    assert cancel_response.json()["canceled_at"] is not None
+    assert cancel_response.json()["deletion_scheduled_at"] is not None
+
+    forbidden_uncancel = client.post(
+        f"/events/{event_response.json()['id']}/uncancel",
+        headers={"Authorization": "Bearer another-user"},
+    )
+    uncancel_response = client.post(
+        f"/events/{event_response.json()['id']}/uncancel",
+        headers={"Authorization": "Bearer darwin"},
+    )
+
+    assert forbidden_uncancel.status_code == 403
+    assert uncancel_response.status_code == 200
+    assert uncancel_response.json()["status"] == "active"
+    assert uncancel_response.json()["canceled_at"] is None
+    assert uncancel_response.json()["deletion_scheduled_at"] is None
+
+    filtered_events = application.get_events(
+        query=EventQuery(
+            filters=EventFilters(
+                statuses=("active",),
+                name="systems",
+                location_id=event_response.json()["location_id"],
+            )
+        )
+    )
+
+    assert [event.id for event in filtered_events.items] == [
+        event_response.json()["id"]
+    ]
+    assert filtered_events.total == 1
+    assert filtered_events.items[0].joiners_count == 0
+    assert filtered_events.items[0].location.name == "Main Hall"
+
+
+def test_health_check_confirms_database_connectivity(tmp_path) -> None:
+    application = build_application(
+        build_test_settings(f"sqlite:///{tmp_path / 'events.db'}")
+    )
+    client = TestClient(create_fastapi_app(application))
+
+    response = client.get("/health")
+
+    assert response.status_code == 200
+    assert response.json() == {"status": "ok"}
+
+
+def test_authentication_is_internal_and_not_exposed(tmp_path) -> None:
+    application = build_application(
+        build_test_settings(f"sqlite:///{tmp_path / 'events.db'}")
+    )
+    client = TestClient(create_fastapi_app(application))
+
+    response = client.post(
+        "/users/authenticate",
+        json={"user_name": "darwin"},
+    )
+    schema = client.get("/openapi.json").json()
+
+    assert response.status_code == 404
+    assert "/users/authenticate" not in schema["paths"]
+    assert "/locations" in schema["paths"]
+    assert "/locations/{location_id}" in schema["paths"]
+    assert "/events/{event_id}/joiners/count" not in schema["paths"]
+    assert "/ws/events/{event_id}" not in {
+        route.path for route in client.app.routes
+    }
+    assert "/events/resolve-location" not in schema["paths"]
+    assert "/events/active/expired" not in schema["paths"]
+    assert "/internal/events" not in schema["paths"]
+
+
+def test_event_creation_requires_a_bearer_user_token(tmp_path) -> None:
+    application = build_application(
+        build_test_settings(f"sqlite:///{tmp_path / 'events.db'}")
+    )
+    client = TestClient(create_fastapi_app(application))
+    payload = {
+        "title": "Protected event",
+        "duration_in_minutes": 60,
+        "location": {"address": "Remote"},
+    }
+
+    missing_token = client.post("/events", json=payload)
+    wrong_scheme = client.post(
+        "/events",
+        headers={"Authorization": "Basic ZGFyd2lu"},
+        json=payload,
+    )
+
+    assert missing_token.status_code == 401
+    assert missing_token.headers["www-authenticate"] == "Bearer"
+    assert wrong_scheme.status_code == 401
+
+
+def test_event_api_rejects_legacy_hour_duration_field(tmp_path) -> None:
+    application = build_application(
+        build_test_settings(f"sqlite:///{tmp_path / 'events.db'}")
+    )
+    client = TestClient(create_fastapi_app(application))
+    response = client.post(
+        "/events",
+        headers={"Authorization": "Bearer darwin"},
+        json={
+            "title": "Legacy request",
+            "duration_in_hours": 1.5,
+            "location": {"address": "Remote"},
+        },
+    )
+
+    assert response.status_code == 422
+
+
+def test_creates_event_and_resolves_embedded_location(tmp_path) -> None:
+    application = build_application(
+        build_test_settings(f"sqlite:///{tmp_path / 'events.db'}")
+    )
+    client = TestClient(create_fastapi_app(application))
+
+    response = client.post(
+        "/events",
+        headers={"Authorization": "Bearer darwin"},
+        json={
+            "title": "Event with embedded location",
+            "scheduled_at": "2026-08-20T18:30:00Z",
+            "duration_in_minutes": 90,
+            "location": {
+                "name": "Main Hall",
+                "address": "Alexanderplatz 1, Berlin",
+                "country": "de",
+                "city": "BÉRLIN",
+                "postal_code": "10178",
+                "coordinates": {
+                    "latitude": 52.5219,
+                    "longitude": 13.4132,
+                },
+            },
+        },
+    )
+
+    assert response.status_code == 201
+    assert response.json()["location_id"] == 1
+    assert response.json()["status"] == "active"
+    assert response.json()["deletion_scheduled_at"] == (
+        "2026-08-27T20:00:00Z"
+    )
+    event_details = client.get(f"/events/{response.json()['id']}").json()
+    assert event_details["location"]["country"] == "DE"
+    assert event_details["location"]["city"] == "berlin"
+    assert event_details["location"]["postal_code"] == "10178"
+
+
+def test_lists_and_updates_locations_used_by_events(tmp_path) -> None:
+    application = build_application(
+        build_test_settings(f"sqlite:///{tmp_path / 'events.db'}")
+    )
+    client = TestClient(create_fastapi_app(application))
+    event = client.post(
+        "/events",
+        headers={"Authorization": "Bearer darwin"},
+        json={
+            "title": "Location update event",
+            "duration_in_minutes": 60,
+            "location": {
+                "name": "Original Hall",
+                "address": "Old address",
+                "country": "DE",
+                "city": "Berlin",
+            },
+        },
+    ).json()
+
+    listed_before = client.get("/locations")
+    updated = client.patch(
+        f"/locations/{event['location_id']}",
+        json={
+            "name": "Updated Hall",
+            "address": "New address",
+            "city": "München",
+        },
+    )
+    listed_after = client.get("/locations")
+    event_after = client.get(f"/events/{event['id']}")
+
+    assert listed_before.status_code == 200
+    assert listed_before.json()[0]["name"] == "Original Hall"
+    assert updated.status_code == 200
+    assert updated.json()["name"] == "Updated Hall"
+    assert updated.json()["address"] == "New address"
+    assert updated.json()["city"] == "munchen"
+    assert listed_after.json() == [updated.json()]
+    assert event_after.json()["location"] == updated.json()
+
+
+def test_location_update_rejects_missing_or_invalid_location(tmp_path) -> None:
+    application = build_application(
+        build_test_settings(f"sqlite:///{tmp_path / 'events.db'}")
+    )
+    client = TestClient(create_fastapi_app(application))
+
+    missing = client.patch("/locations/999", json={"name": "Missing"})
+    empty = client.patch("/locations/999", json={})
+
+    assert missing.status_code == 404
+    assert empty.status_code == 422
+
+
+def test_join_rejects_completed_event_and_accepts_future_event(tmp_path) -> None:
+    application = build_application(
+        build_test_settings(f"sqlite:///{tmp_path / 'events.db'}")
+    )
+    client = TestClient(create_fastapi_app(application))
+    completed = client.post(
+        "/events",
+        headers={"Authorization": "Bearer organizer"},
+        json={
+            "title": "Completed event",
+            "scheduled_at": "2020-01-01T10:00:00Z",
+            "duration_in_minutes": 60,
+            "location": {"address": "Past location"},
+        },
+    ).json()
+    future = client.post(
+        "/events",
+        headers={"Authorization": "Bearer organizer"},
+        json={
+            "title": "Future event",
+            "scheduled_at": "2099-01-01T10:00:00Z",
+            "duration_in_minutes": 60,
+            "location": {"address": "Future location"},
+        },
+    ).json()
+
+    rejected = client.post(
+        "/joiners",
+        headers={"Authorization": "Bearer guest"},
+        json={"event_id": completed["id"]},
+    )
+    accepted = client.post(
+        "/joiners",
+        headers={"Authorization": "Bearer guest"},
+        json={"event_id": future["id"]},
+    )
+
+    assert rejected.status_code == 422
+    assert rejected.json() == {
+        "detail": "A completed event cannot be joined."
+    }
+    assert client.get(f"/events/{completed['id']}").json()["joiners_count"] == 0
+    assert accepted.status_code == 201
+    assert client.get(f"/events/{future['id']}").json()["joiners_count"] == 1
+
+
+def test_internal_use_case_lists_expired_active_events(tmp_path) -> None:
+    application = build_application(
+        build_test_settings(f"sqlite:///{tmp_path / 'events.db'}")
+    )
+    client = TestClient(create_fastapi_app(application))
+    expired = client.post(
+        "/events",
+        headers={"Authorization": "Bearer darwin"},
+        json={
+            "title": "Expired active event",
+            "scheduled_at": "2020-01-01T10:00:00Z",
+            "duration_in_minutes": 60,
+            "location": {"address": "Remote"},
+        },
+    ).json()
+    future = client.post(
+        "/events",
+        headers={"Authorization": "Bearer darwin"},
+        json={
+            "title": "Future active event",
+            "scheduled_at": "2099-01-01T10:00:00Z",
+            "duration_in_minutes": 60,
+            "location_id": expired["location_id"],
+        },
+    ).json()
+    client.post(
+        "/events",
+        headers={"Authorization": "Bearer darwin"},
+        json={
+            "title": "Unscheduled active event",
+            "scheduled_at": None,
+            "duration_in_minutes": 60,
+            "location_id": expired["location_id"],
+        },
+    )
+    canceled_visible = client.post(
+        f"/events/{future['id']}/cancel",
+        headers={"Authorization": "Bearer darwin"},
+    )
+
+    events = application.get_expired_active_events()
+    operational_response = client.get("/events")
+    admon_client = TestClient(create_admon_app(application))
+    internal_response = admon_client.get(
+        "/events",
+        params={
+            "status": "active",
+            "name": "active event",
+            "deletion_date_to": "2021-01-01T00:00:00Z",
+            "page": 1,
+            "page_size": 1,
+        },
+    )
+    public_operation = client.get("/openapi.json").json()["paths"]["/events"][
+        "get"
+    ]
+    admon_operation = admon_client.get("/openapi.json").json()["paths"][
+        "/events"
+    ]["get"]
+
+    assert [event.id for event in events] == [expired["id"]]
+    assert events[0].status == "active"
+    assert events[0].deletion_scheduled_at is not None
+    assert operational_response.status_code == 200
+    assert canceled_visible.status_code == 200
+    assert [event["title"] for event in operational_response.json()] == [
+        "Future active event",
+        "Unscheduled active event",
+    ]
+    assert operational_response.json()[0]["status"] == "canceled"
+    assert internal_response.status_code == 200
+    assert internal_response.json()["total"] == 1
+    assert internal_response.json()["pages"] == 1
+    assert internal_response.json()["items"][0]["id"] == expired["id"]
+    assert public_operation.get("parameters", []) == []
+    assert {
+        parameter["name"]
+        for parameter in admon_operation["parameters"]
+    } == {
+        "status",
+        "name",
+        "from_date",
+        "to_date",
+        "location_id",
+        "deletion_date_from",
+        "deletion_date_to",
+        "page",
+        "page_size",
+    }
+
+
+def test_joins_and_leaves_event(tmp_path) -> None:
+    application = build_application(
+        build_test_settings(f"sqlite:///{tmp_path / 'events.db'}")
+    )
+    client = TestClient(create_fastapi_app(application))
+    event = client.post(
+        "/events",
+        headers={"Authorization": "Bearer darwin"},
+        json={
+            "title": "Joinable event",
+            "duration_in_minutes": 60,
+            "location": {"address": "Remote"},
+        },
+    ).json()
+
+    join_response = client.post(
+        "/joiners",
+        headers={"Authorization": "Bearer external-user"},
+        json={"event_id": event["id"]},
+    )
+    duplicate_response = client.post(
+        "/joiners",
+        headers={"Authorization": "Bearer external-user"},
+        json={"event_id": event["id"]},
+    )
+    second_join_response = client.post(
+        "/joiners",
+        headers={"Authorization": "Bearer another-user"},
+        json={"event_id": event["id"]},
+    )
+    list_response = client.get(f"/events/{event['id']}/joiners")
+    details_response = client.get(f"/events/{event['id']}")
+    leave_response = client.delete(
+        f"/joiners/{event['id']}",
+        headers={"Authorization": "Bearer external-user"},
+    )
+
+    assert join_response.status_code == 201
+    assert isinstance(join_response.json()["id"], int)
+    assert isinstance(join_response.json()["user_id"], int)
+    assert join_response.json()["user_name"] == "external-user"
+    assert join_response.json()["event_id"] == event["id"]
+    assert join_response.json()["left_at"] is None
+    assert duplicate_response.status_code == 409
+    assert second_join_response.status_code == 201
+    assert list_response.status_code == 200
+    assert list_response.json() == [
+        second_join_response.json(),
+        join_response.json(),
+    ]
+    assert details_response.status_code == 200
+    assert details_response.json()["joiners_count"] == 2
+    assert leave_response.status_code == 200
+    assert leave_response.json()["id"] == join_response.json()["id"]
+    assert leave_response.json()["left_at"] is not None
+
+    active_after_leave = client.get(f"/events/{event['id']}/joiners")
+    rejoin_response = client.post(
+        "/joiners",
+        headers={"Authorization": "Bearer external-user"},
+        json={"event_id": event["id"]},
+    )
+
+    assert active_after_leave.json() == [second_join_response.json()]
+    assert rejoin_response.status_code == 201
+    assert rejoin_response.json()["id"] != join_response.json()["id"]
+    assert rejoin_response.json()["left_at"] is None
+
+
+def test_only_organizer_can_update_event(tmp_path) -> None:
+    application = build_application(
+        build_test_settings(f"sqlite:///{tmp_path / 'events.db'}")
+    )
+    client = TestClient(create_fastapi_app(application))
+    first_location = application.create_location(
+        location=Location(address="Original place")
+    )
+    second_location = application.create_location(
+        location=Location(address="Updated place")
+    )
+    event = client.post(
+        "/events",
+        headers={"Authorization": "Bearer darwin"},
+        json={
+            "title": "Original event",
+            "scheduled_at": None,
+            "duration_in_minutes": 60,
+            "location_id": first_location.id,
+        },
+    ).json()
+
+    forbidden = client.patch(
+        f"/events/{event['id']}",
+        headers={"Authorization": "Bearer another-user"},
+        json={"title": "Unauthorized"},
+    )
+    updated = client.patch(
+        f"/events/{event['id']}",
+        headers={"Authorization": "Bearer darwin"},
+        json={
+            "title": "Updated event",
+            "scheduled_at": "2026-09-01T20:00:00+02:00",
+            "duration_in_minutes": 90,
+            "location_id": second_location.id,
+        },
+    )
+    current = client.get(f"/events/{event['id']}")
+
+    assert forbidden.status_code == 403
+    assert updated.status_code == 200
+    assert updated.json()["title"] == "Updated event"
+    assert updated.json()["organizer"] == "darwin"
+    assert updated.json()["scheduled_at"] == "2026-09-01T18:00:00Z"
+    assert updated.json()["duration_in_minutes"] == 90
+    assert updated.json()["location_id"] == second_location.id
+    assert current.json()["title"] == "Updated event"
+    assert current.json()["location"] == second_location.model_dump(mode="json")
+
+
+def test_update_requires_identity_and_valid_payload(tmp_path) -> None:
+    application = build_application(
+        build_test_settings(f"sqlite:///{tmp_path / 'events.db'}")
+    )
+    client = TestClient(create_fastapi_app(application))
+
+    missing_identity = client.patch("/events/1", json={"title": "No actor"})
+    empty_update = client.patch(
+        "/events/1",
+        headers={"Authorization": "Bearer darwin"},
+        json={},
+    )
+    immutable_organizer = client.patch(
+        "/events/1",
+        headers={"Authorization": "Bearer darwin"},
+        json={"organizer": "another-user"},
+    )
+
+    assert missing_identity.status_code == 401
+    assert empty_update.status_code == 422
+    assert immutable_organizer.status_code == 422
+
+
+def test_http_logging_exposes_request_context_and_transaction_id(
+    tmp_path,
+    caplog,
+) -> None:
+    application = build_application(
+        build_test_settings(f"sqlite:///{tmp_path / 'events.db'}")
+    )
+    client = TestClient(create_fastapi_app(application))
+
+    with caplog.at_level(
+        logging.INFO,
+        logger="src.entrypoints.users.fastapi_app",
+    ):
+        response = client.get(
+            "/events",
+            headers={"X-Transaction-ID": "frontend-request-123"},
+        )
+
+    completed = next(
+        record
+        for record in caplog.records
+        if getattr(record, "checkpoint_id", None)
+        == "http-request-completed"
+    )
+    assert response.status_code == 200
+    assert response.headers["X-Transaction-ID"] == "frontend-request-123"
+    assert completed.transaction_id == "frontend-request-123"
+    assert completed.http_method == "GET"
+    assert completed.http_route == "/events"
+    assert completed.http_status == 200
+    assert completed.duration_ms >= 0

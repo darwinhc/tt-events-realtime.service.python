@@ -1,0 +1,1 @@
+"""Event adapter integration tests."""
