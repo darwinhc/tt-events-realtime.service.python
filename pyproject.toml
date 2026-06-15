@@ -1,0 +1,54 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "events-service"
+version = "0.1.0"
+description = "Realtime events management service using hexagonal architecture"
+requires-python = ">=3.10"
+dependencies = [
+    "pydantic>=2.10,<3",
+    "SQLAlchemy==2.0.50",
+    "python-dotenv==1.2.2",
+]
+
+[project.optional-dependencies]
+dev = [
+    "httpx2>=2.4,<3",
+    "pylint>=4,<5",
+    "pytest-cov>=6,<8",
+    "pytest>=8.0,<10",
+    "radon>=6,<7",
+]
+fastapi = [
+    "fastapi>=0.115,<1",
+    "uvicorn[standard]>=0.34,<1",
+]
+postgres = [
+    "psycopg[binary]>=3.2,<4",
+]
+[tool.setuptools.packages.find]
+include = ["src", "src.*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--cov=src --cov-branch --cov-report=term-missing"
+
+[tool.pylint.main]
+ignore-paths = ["^tests/"]
+
+[tool.pylint.design]
+max-args = 10
+max-positional-arguments = 10
+max-locals = 35
+max-statements = 60
+
+[tool.pylint.messages_control]
+disable = [
+    "duplicate-code",
+    "too-few-public-methods",
+]
+
+[tool.pylint.typecheck]
+generated-members = ["sqlalchemy.sql.functions.func.*"]
