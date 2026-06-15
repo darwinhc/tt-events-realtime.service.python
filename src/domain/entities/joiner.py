@@ -3,7 +3,6 @@
 from datetime import datetime, timezone
 from typing import Optional
 
-from dateutil.tz import UTC
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
@@ -16,7 +15,7 @@ class Joiner(BaseModel):
     user_id: int = Field(gt=0)
     user_name: str
     event_id: int = Field(gt=0)
-    joined_at: datetime = Field(default=datetime.now(UTC))
+    joined_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     left_at: Optional[datetime] = None
 
     @field_validator("user_name")
