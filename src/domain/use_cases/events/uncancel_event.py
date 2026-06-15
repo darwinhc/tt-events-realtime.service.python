@@ -28,7 +28,7 @@ def uncancel_event(
             "Only the event organizer can uncancel this event."
         )
     updated_event = events.update(
-        event.uncancel(deletion_delay_days=deletion_delay_days)
+        event.uncancel(deletion_delay_minutes=deletion_delay_days)
     )
     realtime.publish(
         RealtimeEvent(

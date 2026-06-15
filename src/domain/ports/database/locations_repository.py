@@ -1,6 +1,7 @@
 """Location repository port."""
 
 from abc import abstractmethod
+from datetime import datetime
 from typing import Optional
 
 from src.domain.entities import Location
@@ -31,9 +32,9 @@ class LocationsRepository(Repository):
         raise NotImplementedError
 
     def update(self, location: Location) -> Location:
-        """Persist and return an existing location."""
+        """Persist and return to an existing location."""
         raise NotImplementedError
 
-    def delete_old_unused_locations(self, timedelta_in_days: int) -> int:
-        """Delete all locations older than given number of days."""
+    def delete_unused_locations_from_datetime(self, threshold: datetime) -> int:
+        """Delete all locations older than the given datetime."""
         raise NotImplementedError

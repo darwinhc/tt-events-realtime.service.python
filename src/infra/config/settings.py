@@ -54,9 +54,9 @@ class Settings(BaseModel):
     cloudwatch_group: str
     cloudwatch_stream: str
     aws_region: str
-    event_deletion_delay_days: int = 7
+    event_deletion_delay_minutes: int = 7*60*24
     location_unused_deletion_delay_days: int = 90
-    canceled_event_deletion_delay_days: int = 1
+    canceled_event_deletion_delay_minutes: int = 90
     cors_allowed_origins: tuple[str, ...] = ()
 
 
@@ -116,7 +116,7 @@ def get_settings() -> Settings:
         cloudwatch_group=cloudwatch_group,
         cloudwatch_stream=cloudwatch_stream,
         aws_region=aws_region,
-        event_deletion_delay_days=_read_non_negative_int(
+        event_deletion_delay_minutes=_read_non_negative_int(
             "EVENT_DELETION_DELAY_DAYS",
             7,
         ),

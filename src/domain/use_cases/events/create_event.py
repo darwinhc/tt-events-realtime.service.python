@@ -13,7 +13,7 @@ from src.domain.ports.events import (
 def create_event(
     event: Event,
     events: EventsRepository,
-    deletion_delay_days: int,
+    deletion_delay_minutes: int,
     authentication: AuthenticationPort,
     realtime: RealtimeEventPublisher = NullRealtimeEventPublisher(),
 ) -> Event:
@@ -34,7 +34,7 @@ def create_event(
         }
     )
     event_with_deletion_policy = new_event.schedule_deletion_after_event(
-        deletion_delay_days
+        delay_minutes=deletion_delay_minutes
     )
     created_event = events.create(event_with_deletion_policy)
     realtime.publish(

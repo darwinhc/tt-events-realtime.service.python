@@ -114,10 +114,8 @@ class SQLAlchemyLocationsRepository(LocationsRepository):
             )
             return updated_location
 
-    def delete_old_unused_locations(self, timedelta_in_days: int = 365) -> int:
+    def delete_unused_locations_from_datetime(self, threshold: datetime) -> int:
         """Delete old unused locations."""
-        threshold = datetime.now(timezone.utc) - timedelta(days=timedelta_in_days)
-
         with self._database.sessions().begin() as session:
             locations_to_delete = session.execute(
                 select(LocationModel)

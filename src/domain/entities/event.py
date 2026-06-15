@@ -132,15 +132,15 @@ class Event(BaseModel):
             )
         return self
 
-    def schedule_deletion_after_event(self, delay_days: int) -> "Event":
+    def schedule_deletion_after_event(self, delay_minutes: int) -> "Event":
         """Return the event with deletion scheduled after its end time."""
-        self._validate_delay_days(delay_days)
+        self._validate_delay_minutes(delay_minutes)
         deletion_scheduled_at = None
         if self.scheduled_at is not None:
             event_end = self.scheduled_at + timedelta(
                 minutes=self.duration_in_minutes
             )
-            deletion_scheduled_at = event_end + timedelta(days=delay_days)
+            deletion_scheduled_at = event_end + timedelta(days=delay_minutes)
         return self.model_copy(
             update={"deletion_scheduled_at": deletion_scheduled_at}
         )
@@ -161,7 +161,7 @@ class Event(BaseModel):
     def cancel(
         self,
         canceled_at: datetime,
-        deletion_delay_days: int,
+        deletion_delay_minutes: int,
     ) -> "Event":
         """Cancel while preserving the earliest applicable deletion date."""
         if self.status is EventStatus.CANCELED:
@@ -170,10 +170,10 @@ class Event(BaseModel):
             raise DomainValidationError(
                 "Event cancellation datetime must include a timezone."
             )
-        self._validate_delay_days(deletion_delay_days)
+        self._validate_delay_minutes(deletion_delay_minutes)
         normalized_canceled_at = canceled_at.astimezone(timezone.utc)
         cancellation_deletion_at = normalized_canceled_at + timedelta(
-            days=deletion_delay_days
+            minutes=deletion_delay_minutes
         )
         deletion_scheduled_at = cancellation_deletion_at
         if self.deletion_scheduled_at is not None:
@@ -189,7 +189,7 @@ class Event(BaseModel):
             }
         )
 
-    def uncancel(self, deletion_delay_days: int) -> "Event":
+    def uncancel(self, deletion_delay_minutes: int) -> "Event":
         """Reactivate the event and restore its event-based deletion date."""
         if self.status is not EventStatus.CANCELED:
             raise DomainValidationError("Event is not canceled.")
@@ -198,10 +198,10 @@ class Event(BaseModel):
                 "status": EventStatus.ACTIVE,
                 "canceled_at": None,
             }
-        ).schedule_deletion_after_event(deletion_delay_days)
+        ).schedule_deletion_after_event(deletion_delay_minutes)
 
     @staticmethod
-    def _validate_delay_days(value: int) -> None:
+    def _validate_delay_minutes(value: int) -> None:
         if isinstance(value, bool) or not isinstance(value, int) or value < 0:
             raise DomainValidationError(
                 "Event deletion delay must be a non-negative integer."

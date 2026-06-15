@@ -17,7 +17,7 @@ def cancel_event(
     event_id: int,
     actor_user_name: str,
     events: EventsRepository,
-    deletion_delay_days: int,
+    deletion_delay_minutes: int,
     authentication: AuthenticationPort,
     clock: Callable[[], datetime] = lambda: datetime.now(timezone.utc),
     realtime: RealtimeEventPublisher = NullRealtimeEventPublisher(),
@@ -33,7 +33,7 @@ def cancel_event(
         )
     canceled_event = event.cancel(
         canceled_at=clock(),
-        deletion_delay_days=deletion_delay_days,
+        deletion_delay_minutes=deletion_delay_minutes,
     )
     updated_event = events.update(canceled_event)
     realtime.publish(

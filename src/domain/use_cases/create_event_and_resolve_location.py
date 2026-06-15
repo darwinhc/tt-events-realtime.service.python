@@ -45,7 +45,7 @@ def create_event_and_resolve_location(
     return create_event(
         event=resolved_event,
         events=events,
-        deletion_delay_days=deletion_delay_days,
+        deletion_delay_minutes=deletion_delay_days,
         authentication=authentication,
         realtime=realtime,
     )
