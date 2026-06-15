@@ -117,11 +117,11 @@ def get_settings() -> Settings:
         cloudwatch_stream=cloudwatch_stream,
         aws_region=aws_region,
         event_deletion_delay_minutes=_read_non_negative_int(
-            "EVENT_DELETION_DELAY_DAYS",
+            "EVENT_DELETION_DELAY_MINUTES",
             7,
         ),
-        canceled_event_deletion_delay_days=_read_non_negative_int(
-            "CANCELED_EVENT_DELETION_DELAY_DAYS",
+        canceled_event_deletion_delay_minutes=_read_non_negative_int(
+            "CANCELED_EVENT_DELETION_DELAY_MINUTES",
             1,
         ),
         cors_allowed_origins=cors_allowed_origins,
