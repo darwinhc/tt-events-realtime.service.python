@@ -34,7 +34,16 @@ class Settings(BaseModel):
 def get_settings() -> Settings:
     """Load `.env` defaults while preserving real environment overrides."""
     project_root = Path(__file__).resolve().parents[3]
-    load_dotenv(project_root / ".env", override=False)
+
+    env_file = os.getenv("EVENTS_ENV_FILE", ".env").strip()
+
+    if env_file.lower() not in {"", "none", "false"}:
+        env_path = Path(env_file)
+
+        if not env_path.is_absolute():
+            env_path = project_root / env_path
+
+        load_dotenv(env_path, override=False)
 
     app_name = os.getenv("APP_NAME", "events-service").strip()
     environment = os.getenv("APP_ENV", "development").strip()
