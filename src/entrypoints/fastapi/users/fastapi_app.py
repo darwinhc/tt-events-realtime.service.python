@@ -30,8 +30,11 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    yield
-    app.state.application.database.dispose()
+    """Lifespan handler for FastAPI application."""
+    try:
+        yield
+    finally:
+        app.state.application.database.dispose()
 
 
 def create_fastapi_app(
