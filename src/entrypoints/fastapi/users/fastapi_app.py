@@ -2,6 +2,7 @@
 
 import logging
 import time
+from contextlib import asynccontextmanager
 from typing import Optional
 from uuid import uuid4
 
@@ -27,6 +28,12 @@ from src.infra.logging import reset_transaction_id, set_transaction_id
 logger = logging.getLogger(__name__)
 
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    yield
+    app.state.application.database.dispose()
+
+
 def create_fastapi_app(
         application: Optional[Application] = None,
         realtime: Optional[FastAPIWebSocketPublisher] = None,
@@ -50,6 +57,7 @@ def create_fastapi_app(
         ),
         version="1.0.0",
         openapi_tags=OPENAPI_TAGS,
+        lifespan=lifespan,
     )
     app.state.application = application or build_application(
         settings=runtime_settings,
