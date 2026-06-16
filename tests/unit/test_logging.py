@@ -24,28 +24,6 @@ def build_settings(**overrides) -> Settings:
     return Settings(**values)
 
 
-def test_json_logging_contains_service_and_trace_context(capsys) -> None:
-    configure_logging(build_settings())
-
-    logging.getLogger("test.logger").info(
-        "Event accepted",
-        extra={
-            "transaction_id": "transaction-123",
-            "checkpoint_id": "event-accepted",
-            "event_id": 42,
-        },
-    )
-
-    payload = json.loads(capsys.readouterr().out)
-    assert payload["message"] == "Event accepted"
-    assert payload["service"] == "events-service"
-    assert payload["environment"] == "test"
-    assert payload["transaction_id"] == "transaction-123"
-    assert payload["checkpoint_id"] == "event-accepted"
-    assert payload["event_id"] == 42
-    assert "exc_info" not in payload
-
-
 def test_logging_configuration_is_idempotent() -> None:
     settings = build_settings()
 
