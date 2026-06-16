@@ -9,7 +9,7 @@ _bearer_scheme = HTTPBearer(auto_error=False)
 
 
 def user_name_from_token(
-        credentials: Optional[HTTPAuthorizationCredentials] = Depends(_bearer_scheme),
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(_bearer_scheme),
 ) -> str:
     """Return the visible user encoded as the bearer token."""
     if credentials is None:

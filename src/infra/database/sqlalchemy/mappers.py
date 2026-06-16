@@ -21,6 +21,7 @@ def location_model_to_entity(model: LocationModel) -> Location:
         city=model.city,
         postal_code=model.postal_code,
         coordinates=coordinates,
+        created_at=model.created_at,
     )
 
 
@@ -52,5 +53,6 @@ def joiner_model_to_entity(model: JoinerModel, user_name: str) -> Joiner:
         user_id=model.user_id,
         user_name=user_name,
         event_id=model.event_id,
+        joined_at=model.joined_at,
         left_at=model.left_at,
     )

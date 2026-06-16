@@ -36,6 +36,7 @@ async def create_event(
         body: EventCreate,
         user_name: str = Depends(user_name_from_token),
 ) -> Event:
+    """Create an event with an optional date-to-be-defined schedule."""
     return request.app.state.application.create_event_and_resolve_location(
         event=body.to_event(organizer=user_name),
     )
@@ -49,6 +50,7 @@ async def create_event(
     operation_id="listVisibleEvents",
 )
 async def get_visible_events(request: Request) -> list[EventDetails]:
+    """Returns all events visible according to the domain rules."""
     return request.app.state.application.get_visible_events()
 
 
@@ -64,6 +66,7 @@ async def get_visible_events(request: Request) -> list[EventDetails]:
     },
 )
 async def get_event(request: Request, event_id: int) -> EventDetails:
+    """Returns the details of a single event by its identifier."""
     return request.app.state.application.get_event(event_id=event_id)
 
 
@@ -86,6 +89,7 @@ async def update_event(
         changes: EventUpdate,
         user_name: str = Depends(user_name_from_token),
 ) -> Event:
+    """Update an event using partial changes. Only the organizer can update it."""
     return request.app.state.application.update_event(
         event_id=event_id,
         actor_user_name=user_name,
@@ -110,6 +114,7 @@ async def cancel_event(
         event_id: int,
         user_name: str = Depends(user_name_from_token),
 ) -> Event:
+    """Cancel an active event."""
     return request.app.state.application.cancel_event(
         event_id=event_id,
         actor_user_name=user_name,

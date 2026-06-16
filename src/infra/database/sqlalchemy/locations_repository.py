@@ -134,14 +134,15 @@ class SQLAlchemyLocationsRepository(LocationsRepository):
             location_ids = []
             for location in locations_to_delete:
                 logger.debug(
-                    "Deleting unused location: "
-                    f"id={location.id}, "
-                    f"name={location.name}, "
-                    f"address={location.address}, "
-                    f"city={location.city}, "
-                    f"country={location.country}, "
-                    f"postal_code={location.postal_code}, "
-                    f"created_at={location.created_at}"
+                    "Deleting unused location: id=%s name=%s address=%s city=%s country=%s "
+                    "postal_code=%s created_at=%s",
+                    location.id,
+                    location.name,
+                    location.address,
+                    location.city,
+                    location.country,
+                    location.postal_code,
+                    location.created_at,
                 )
                 location_ids.append(location.id)
 

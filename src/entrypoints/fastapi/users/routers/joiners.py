@@ -34,6 +34,7 @@ async def join_event(
         body: JoinEventRequest,
         user_name: str = Depends(user_name_from_token),
 ) -> Joiner:
+    """Authenticated user joins to active event"""
     return request.app.state.application.join_event(
         user_name=user_name,
         event_id=body.event_id,
@@ -52,6 +53,7 @@ async def join_event(
     },
 )
 async def get_all_guests(request: Request, event_id: int) -> list[Joiner]:
+    """Returns all users who joined the given event."""
     return request.app.state.application.get_all_guests(event_id=event_id)
 
 
@@ -72,6 +74,7 @@ async def leave_event(
         event_id: int,
         user_name: str = Depends(user_name_from_token),
 ) -> Joiner:
+    """Authenticated user leaves an event"""
     return request.app.state.application.leave_event(
         user_name=user_name,
         event_id=event_id,

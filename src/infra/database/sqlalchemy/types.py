@@ -5,9 +5,10 @@ from datetime import datetime, timezone
 from sqlalchemy import DateTime, Text
 from sqlalchemy.types import TypeDecorator
 
+# pylint: disable=too-many-ancestors,abstract-method
 
 class UTCDateTime(TypeDecorator):
-    """Persist aware UTC datetimes with dialect-appropriate storage."""
+    """Persist aware UTC datetime with dialect-appropriate storage."""
 
     impl = DateTime
     cache_ok = True

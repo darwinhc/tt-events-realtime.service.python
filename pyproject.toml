@@ -15,6 +15,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
+    "alembic>=1.18,<2",
     "httpx2>=2.4,<3",
     "pylint>=4,<5",
     "pytest-cov>=6,<8",
@@ -33,7 +34,7 @@ include = ["src", "src.*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "--cov=src --cov-branch --cov-report=term-missing"
+addopts = "--cov=src --cov-branch --cov-report=term-missing --cov-fail-under=80"
 
 [tool.pylint.main]
 ignore-paths = ["^tests/"]

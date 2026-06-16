@@ -351,7 +351,7 @@ def test_internal_use_case_lists_expired_active_events(tmp_path) -> None:
             "location_id": expired["location_id"],
         },
     ).json()
-    client.post(
+    unscheduled_event = client.post(
         "/events",
         headers={"Authorization": "Bearer darwin"},
         json={
@@ -365,6 +365,16 @@ def test_internal_use_case_lists_expired_active_events(tmp_path) -> None:
         f"/events/{future['id']}/cancel",
         headers={"Authorization": "Bearer darwin"},
     )
+    assert canceled_visible.status_code == 200
+    assert canceled_visible.json()["status"] == "canceled"
+
+    response_get = client.get("/events")
+    assert response_get.status_code == 200
+    assert len(response_get.json()) == 2
+    assert set(item_i.get("id") for item_i in response_get.json()) == {
+        unscheduled_event.json()["id"], future["id"]
+    }
+
 
 
 def test_joins_and_leaves_event(tmp_path) -> None:

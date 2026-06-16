@@ -12,11 +12,12 @@ from fastapi import (
     WebSocketDisconnect,
 )
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.security import HTTPBearer
 from sqlalchemy import text
 
 from src.application import Application, build_application
-from src.entrypoints.fastapi.register_fastapi_exception_handlers import register_fast_api_exception_handlers
+from src.entrypoints.fastapi.register_fastapi_exception_handlers import (
+    register_fast_api_exception_handlers
+)
 from src.entrypoints.fastapi.users.openapi import OPENAPI_TAGS
 from src.entrypoints.fastapi.users.routers import events_router, locations_router, joiners_router
 from src.infra.config import get_settings
@@ -24,7 +25,6 @@ from src.infra.events.fastapi_websocket import FastAPIWebSocketPublisher
 from src.infra.logging import reset_transaction_id, set_transaction_id
 
 logger = logging.getLogger(__name__)
-_bearer_scheme = HTTPBearer(auto_error=False)
 
 
 def create_fastapi_app(

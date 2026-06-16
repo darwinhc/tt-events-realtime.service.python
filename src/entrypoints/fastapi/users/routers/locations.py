@@ -17,6 +17,7 @@ router = APIRouter(prefix="/locations", tags=["Locations"])
     operation_id="listLocations",
 )
 async def get_locations(request: Request) -> list[Location]:
+    """Returns all available event locations."""
     return request.app.state.application.get_locations()
 
 
@@ -36,6 +37,7 @@ async def update_location(
         location_id: int,
         changes: LocationUpdate,
 ) -> Location:
+    """Updates an existing location using partial changes."""
     return request.app.state.application.update_location(
         location_id=location_id,
         changes=changes,

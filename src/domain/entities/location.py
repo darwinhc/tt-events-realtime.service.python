@@ -1,7 +1,7 @@
 """Location entity and geographic value object."""
 
 import unicodedata
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
