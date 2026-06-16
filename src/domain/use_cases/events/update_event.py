@@ -21,7 +21,7 @@ def update_event(
     changes: EventUpdate,
     events: EventsRepository,
     locations: LocationsRepository,
-    deletion_delay_days: int,
+    deletion_delay_minutes: int,
     authentication: AuthenticationPort,
     realtime: RealtimeEventPublisher = NullRealtimeEventPublisher(),
 ) -> Event:
@@ -55,7 +55,7 @@ def update_event(
             **event.model_dump(exclude={"location"}),
             **update_values,
         }
-    ).schedule_deletion_after_event(deletion_delay_days)
+    ).schedule_deletion_after_event(deletion_delay_minutes)
     persisted_event = events.update(updated_event)
     realtime.publish(
         RealtimeEvent(

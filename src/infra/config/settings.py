@@ -55,7 +55,7 @@ class Settings(BaseModel):
     cloudwatch_stream: str
     aws_region: str
     event_deletion_delay_minutes: int = 7*60*24
-    location_unused_deletion_delay_days: int = 90
+    location_unused_deletion_delay_minutes: int = 90
     canceled_event_deletion_delay_minutes: int = 90
     cors_allowed_origins: tuple[str, ...] = ()
 

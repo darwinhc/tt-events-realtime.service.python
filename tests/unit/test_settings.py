@@ -32,7 +32,7 @@ def test_environment_overrides_dotenv(monkeypatch) -> None:
         "https://admin.example.com",
     )
     assert settings.event_deletion_delay_minutes == 7
-    assert settings.canceled_event_deletion_delay_days == 1
+    assert settings.canceled_event_deletion_delay_minutes == 1
     get_settings.cache_clear()
 
 

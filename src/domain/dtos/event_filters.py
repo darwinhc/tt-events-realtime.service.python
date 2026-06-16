@@ -46,7 +46,7 @@ class EventFilters(BaseModel):
         )
         scheduled_until = (
             datetime.combine(
-                to_date + timedelta(days=1),
+                to_date + timedelta(minutes=1),
                 time.min,
                 tzinfo=timezone.utc,
             )

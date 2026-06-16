@@ -88,7 +88,7 @@ def test_creates_event_with_existing_location() -> None:
         ),
         events=InMemoryEventsRepository(),
         locations=InMemoryLocationsRepository(),
-        deletion_delay_days=7,
+        deletion_delay_minutes=7,
         authentication=FakeAuthentication(),
     )
 
@@ -106,7 +106,7 @@ def test_creates_location_before_event() -> None:
         ),
         events=InMemoryEventsRepository(),
         locations=InMemoryLocationsRepository(),
-        deletion_delay_days=7,
+        deletion_delay_minutes=7,
         authentication=FakeAuthentication(),
     )
 

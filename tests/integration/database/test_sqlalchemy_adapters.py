@@ -192,7 +192,7 @@ def test_updates_canceled_event_and_deletes_it_when_due(adapters) -> None:
 
     assert events.delete_due(canceled_at + timedelta(hours=23)) == 0
     assert events.get_by_id(created.id) == canceled
-    assert events.delete_due(canceled_at + timedelta(days=1)) == 1
+    assert events.delete_due(canceled_at + timedelta(minutes=1)) == 1
     assert events.get_by_id(created.id) is None
 
 
@@ -509,7 +509,7 @@ def test_event_deletion_cascades_to_joiners(adapters) -> None:
         )
     )
 
-    assert events.delete_due(canceled_at + timedelta(days=1)) == 1
+    assert events.delete_due(canceled_at + timedelta(minutes=1)) == 1
     assert joiners.get(joiner.user_id, joiner.event_id) is None
     with database.engine.connect() as connection:
         assert connection.execute(

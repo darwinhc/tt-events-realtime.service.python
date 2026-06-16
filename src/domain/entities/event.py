@@ -140,7 +140,7 @@ class Event(BaseModel):
             event_end = self.scheduled_at + timedelta(
                 minutes=self.duration_in_minutes
             )
-            deletion_scheduled_at = event_end + timedelta(days=delay_minutes)
+            deletion_scheduled_at = event_end + timedelta(minutes=delay_minutes)
         return self.model_copy(
             update={"deletion_scheduled_at": deletion_scheduled_at}
         )

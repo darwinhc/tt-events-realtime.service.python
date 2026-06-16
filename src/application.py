@@ -106,12 +106,12 @@ def build_application(
         delete_old_unused_locations=partial(
             delete_old_unused_locations,
             locations=locations,
-            timedelta_in_days=current_settings.location_unused_deletion_delay_days
+            timedelta_in_minutes=current_settings.location_unused_deletion_delay_minutes
         ),
         create_event=partial(
             create_event,
             events=events,
-            deletion_delay_days=current_settings.event_deletion_delay_minutes,
+            deletion_delay_minutes=current_settings.event_deletion_delay_minutes,
             authentication=authentication,
             realtime=realtime_publisher,
         ),
@@ -119,7 +119,7 @@ def build_application(
             create_event_and_resolve_location,
             events=events,
             locations=locations,
-            deletion_delay_days=current_settings.event_deletion_delay_minutes,
+            deletion_delay_minutes=current_settings.event_deletion_delay_minutes,
             authentication=authentication,
             realtime=realtime_publisher,
         ),
@@ -158,14 +158,14 @@ def build_application(
             uncancel_event,
             events=events,
             authentication=authentication,
-            deletion_delay_days=current_settings.event_deletion_delay_minutes,
+            deletion_delay_minutes=current_settings.event_deletion_delay_minutes,
             realtime=realtime_publisher,
         ),
         update_event=partial(
             update_event,
             events=events,
             locations=locations,
-            deletion_delay_days=current_settings.event_deletion_delay_minutes,
+            deletion_delay_minutes=current_settings.event_deletion_delay_minutes,
             authentication=authentication,
             realtime=realtime_publisher,
         ),
