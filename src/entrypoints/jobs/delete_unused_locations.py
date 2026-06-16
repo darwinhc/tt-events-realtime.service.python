@@ -23,7 +23,6 @@ def main() -> None:
         current_settings.database_url,
         echo=current_settings.sqlalchemy_echo,
     )
-    database.initialize()
     locations = SQLAlchemyLocationsRepository(database)
 
     deleted_count = delete_old_unused_locations(locations, timedelta_in_minutes=timedelta_in_mins)

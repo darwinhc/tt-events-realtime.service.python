@@ -19,7 +19,6 @@ def main() -> None:
         current_settings.database_url,
         echo=current_settings.sqlalchemy_echo,
     )
-    database.initialize()
     events = SQLAlchemyEventsRepository(database)
 
     deleted_count = delete_expired_events(events, lambda: datetime.now(timezone.utc))

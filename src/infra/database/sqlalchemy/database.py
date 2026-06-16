@@ -6,7 +6,6 @@ from pathlib import Path
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import Session, sessionmaker
 
-from .models import Base
 
 
 class SQLAlchemyDatabase:
