@@ -185,10 +185,10 @@ def test_canceling_past_event_keeps_earlier_event_deletion_date() -> None:
         scheduled_at=datetime(2026, 8, 1, 10, 0, tzinfo=timezone.utc),
         duration_in_minutes=60,
         location_id=1,
-    ).schedule_deletion_after_event(7)
+    ).schedule_deletion_after_event(7*24*60)
     canceled_at = datetime(2026, 8, 10, 12, 0, tzinfo=timezone.utc)
 
-    canceled_event = event.cancel(canceled_at, deletion_delay_minutes=1)
+    canceled_event = event.cancel(canceled_at, deletion_delay_minutes=1*24*60)
 
     assert canceled_event.status is EventStatus.CANCELED
     assert canceled_event.canceled_at == canceled_at
