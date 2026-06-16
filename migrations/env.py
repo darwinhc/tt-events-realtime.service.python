@@ -87,13 +87,13 @@ def _configure_sqlite_connection(
     cursor.close()
 
 
-def _configure_context(connection: Connection | None = None) -> dict[str, Any]:
+def _configure_context(database_url: str, connection: Connection | None = None) -> dict[str, Any]:
     """Build the common Alembic context configuration."""
     context_options: dict[str, Any] = {
         "target_metadata": target_metadata,
         "compare_type": True,
         "compare_server_default": True,
-        "render_as_batch": True,
+        "render_as_batch": database_url.startswith("sqlite"),
         # This makes autogenerate render custom types as
         # `sqlalchemy_types.UTCDateTime()` instead of using a long module path.
         # The generated migration template imports this alias.
@@ -103,7 +103,7 @@ def _configure_context(connection: Connection | None = None) -> dict[str, Any]:
     if connection is not None:
         context_options["connection"] = connection
     else:
-        context_options["url"] = _get_database_url()
+        context_options["url"] = database_url
         context_options["literal_binds"] = True
         context_options["dialect_opts"] = {"paramstyle": "named"}
 
@@ -120,7 +120,7 @@ def run_migrations_offline() -> None:
     _prepare_sqlite_directory(database_url)
     config.set_main_option("sqlalchemy.url", database_url)
 
-    context.configure(**_configure_context())
+    context.configure(**_configure_context(database_url))
 
     with context.begin_transaction():
         context.run_migrations()
@@ -142,7 +142,7 @@ def run_migrations_online() -> None:
         event.listen(connectable, "connect", _configure_sqlite_connection)
 
     with connectable.connect() as connection:
-        context.configure(**_configure_context(connection))
+        context.configure(**_configure_context(database_url, connection))
 
         with context.begin_transaction():
             context.run_migrations()
