@@ -19,11 +19,6 @@ class Settings(BaseModel):
     database_url: str
     sqlalchemy_echo: bool
     log_level: str
-    log_format: str
-    cloudwatch_enabled: bool
-    cloudwatch_group: str
-    cloudwatch_stream: str
-    aws_region: str
     event_deletion_delay_minutes: int = 7*60*24
     location_unused_deletion_delay_minutes: int = 90
     canceled_event_deletion_delay_minutes: int = 90
@@ -56,16 +51,6 @@ def get_settings() -> Settings:
         "INFO",
         {"debug", "info", "warning", "error", "critical"},
     ).upper()
-    log_format = read_choice("LOG_FORMAT", "json", {"json", "text"})
-    cloudwatch_group = os.getenv(
-        "LOG_CLOUDWATCH_GROUP",
-        f"/applications/{app_name}",
-    ).strip()
-    cloudwatch_stream = os.getenv(
-        "LOG_CLOUDWATCH_STREAM",
-        environment,
-    ).strip()
-    aws_region = os.getenv("AWS_REGION", "eu-central-1").strip()
     cors_allowed_origins = tuple(
         origin.strip()
         for origin in os.getenv("CORS_ALLOWED_ORIGINS", "").split(",")
@@ -76,9 +61,6 @@ def get_settings() -> Settings:
         "APP_NAME": app_name,
         "APP_ENV": environment,
         "EVENTS_DATABASE_URL": database_url,
-        "LOG_CLOUDWATCH_GROUP": cloudwatch_group,
-        "LOG_CLOUDWATCH_STREAM": cloudwatch_stream,
-        "AWS_REGION": aws_region,
     }
     for name, value in required_values.items():
         if not value:
@@ -90,11 +72,6 @@ def get_settings() -> Settings:
         database_url=database_url,
         sqlalchemy_echo=read_bool("SQLALCHEMY_ECHO", False),
         log_level=log_level,
-        log_format=log_format,
-        cloudwatch_enabled=read_bool("LOG_CLOUDWATCH_ENABLED", False),
-        cloudwatch_group=cloudwatch_group,
-        cloudwatch_stream=cloudwatch_stream,
-        aws_region=aws_region,
         event_deletion_delay_minutes=read_non_negative_int(
             "EVENT_DELETION_DELAY_MINUTES",
             120,
@@ -102,6 +79,10 @@ def get_settings() -> Settings:
         canceled_event_deletion_delay_minutes=read_non_negative_int(
             "CANCELED_EVENT_DELETION_DELAY_MINUTES",
             120,
+        ),
+        location_unused_deletion_delay_minutes=read_non_negative_int(
+            "LOCATION_UNUSED_DELETION_DELAY_MINUTES",
+            90*24*60,
         ),
         cors_allowed_origins=cors_allowed_origins,
     )
