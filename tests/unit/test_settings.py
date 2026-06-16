@@ -2,15 +2,12 @@
 
 import pytest
 
-from src.infra.config.settings import (
-    _read_bool,
-    _read_choice,
-    read_non_negative_int,
-    get_settings,
-)
+from src.infra.config.settings import get_settings
+from src.infra.config.utils import read_choice, read_bool, read_non_negative_int
 
 
 def test_environment_overrides_dotenv(monkeypatch) -> None:
+    monkeypatch.setenv("EVENTS_ENV_FILE", ".env.test")
     monkeypatch.setenv("APP_ENV", "test")
     monkeypatch.setenv("LOG_LEVEL", "DEBUG")
     monkeypatch.setenv("LOG_FORMAT", "text")
@@ -31,8 +28,8 @@ def test_environment_overrides_dotenv(monkeypatch) -> None:
         "https://app.example.com",
         "https://admin.example.com",
     )
-    assert settings.event_deletion_delay_minutes == 7
-    assert settings.canceled_event_deletion_delay_minutes == 1
+    assert settings.event_deletion_delay_minutes == 120
+    assert settings.canceled_event_deletion_delay_minutes == 120
     get_settings.cache_clear()
 
 
@@ -44,20 +41,20 @@ def test_invalid_boolean_environment_value_is_rejected(
     monkeypatch.setenv("FEATURE_FLAG", value)
 
     with pytest.raises(ValueError, match="boolean"):
-        _read_bool("FEATURE_FLAG", False)
+        read_bool("FEATURE_FLAG", False)
 
 
 def test_boolean_reader_supports_defaults_and_false_values(monkeypatch) -> None:
     monkeypatch.delenv("FEATURE_FLAG", raising=False)
-    assert _read_bool("FEATURE_FLAG", True) is True
+    assert read_bool("FEATURE_FLAG", True) is True
     monkeypatch.setenv("FEATURE_FLAG", "off")
-    assert _read_bool("FEATURE_FLAG", True) is False
+    assert read_bool("FEATURE_FLAG", True) is False
 
 
 def test_choice_and_non_negative_integer_validation(monkeypatch) -> None:
     monkeypatch.setenv("MODE", "invalid")
     with pytest.raises(ValueError, match="one of"):
-        _read_choice("MODE", "json", {"json", "text"})
+        read_choice("MODE", "json", {"json", "text"})
 
     monkeypatch.setenv("COUNT", "not-a-number")
     with pytest.raises(ValueError, match="non-negative"):

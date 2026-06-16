@@ -75,7 +75,7 @@ def test_organizer_updates_editable_fields_and_recalculates_deletion() -> None:
         ),
         events=events,
         locations=Locations(20),
-        deletion_delay_minutes=7,
+        deletion_delay_minutes=7*60*24,
         authentication=FakeAuthentication(),
         realtime=publisher,
     )
@@ -101,7 +101,7 @@ def test_organizer_can_clear_schedule_and_deletion_date() -> None:
         changes=EventUpdate(scheduled_at=None),
         events=Events(_event()),
         locations=Locations(),
-        deletion_delay_minutes=7,
+        deletion_delay_minutes=7*60*24,
         authentication=FakeAuthentication(),
     )
 
@@ -120,7 +120,7 @@ def test_non_organizer_cannot_update_or_publish() -> None:
             changes=EventUpdate(title="Forbidden"),
             events=events,
             locations=Locations(),
-            deletion_delay_minutes=7,
+            deletion_delay_minutes=7*60*24,
             authentication=FakeAuthentication(
                 {"darwin": 1, "another-user": 2}
             ),

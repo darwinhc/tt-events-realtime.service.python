@@ -51,7 +51,7 @@ def test_cancel_event_uses_configured_deletion_delay() -> None:
         event_id=8,
         actor_user_name="darwin",
         events=repository,
-        deletion_delay_minutes=1,
+        deletion_delay_minutes=24*60,
         authentication=FakeAuthentication(),
         clock=lambda: canceled_at,
     )

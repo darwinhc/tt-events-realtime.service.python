@@ -76,7 +76,7 @@ def test_organizer_can_uncancel_event() -> None:
         event_id=8,
         actor_user_name="darwin",
         events=events,
-        deletion_delay_minutes=7,
+        deletion_delay_minutes=7*60*24,
         authentication=FakeAuthentication(),
         realtime=publisher,
     )
@@ -102,7 +102,7 @@ def test_non_organizer_cannot_uncancel_event() -> None:
             event_id=8,
             actor_user_name="another-user",
             events=events,
-            deletion_delay_minutes=7,
+            deletion_delay_minutes=7*60*24,
             authentication=FakeAuthentication(
                 {"darwin": 1, "another-user": 2}
             ),
@@ -117,7 +117,7 @@ def test_uncancel_rejects_missing_or_active_event() -> None:
             event_id=8,
             actor_user_name="darwin",
             events=Events(None),
-            deletion_delay_minutes=7,
+            deletion_delay_minutes=7*60*24,
             authentication=FakeAuthentication(),
         )
 
@@ -127,6 +127,6 @@ def test_uncancel_rejects_missing_or_active_event() -> None:
             event_id=8,
             actor_user_name="darwin",
             events=Events(active),
-            deletion_delay_minutes=7,
+            deletion_delay_minutes=7*60*24,
             authentication=FakeAuthentication(),
         )

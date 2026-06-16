@@ -189,7 +189,7 @@ def test_get_events_passes_internal_deletion_date_filters() -> None:
     assert events.received_filters.deletion_scheduled_until == deletion_to
 
 
-def test_get_visible_events_includes_active_and_canceled_before_deletion() -> None:
+def test_get_visible_events_not_includes_active_and_canceled_before_deletion() -> None:
     location = Location(id=3, address="Berlin")
     without_deadline = Event(
         id=8,
@@ -219,11 +219,11 @@ def test_get_visible_events_includes_active_and_canceled_before_deletion() -> No
     )
     canceled_visible = without_deadline.model_copy(update={"id": 11}).cancel(
         datetime(2026, 8, 20, 12, tzinfo=timezone.utc),
-        deletion_delay_minutes=1,
+        deletion_delay_minutes=24*60,
     )
     canceled_expired = without_deadline.model_copy(update={"id": 12}).cancel(
         datetime(2026, 8, 19, 12, tzinfo=timezone.utc),
-        deletion_delay_minutes=1,
+        deletion_delay_minutes=24*60,
     )
     events = InMemoryEventsRepository(
         [

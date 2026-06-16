@@ -61,7 +61,7 @@ def test_create_event_uses_injected_port() -> None:
             location_id=4,
         ),
         events=repository,
-        deletion_delay_minutes=7,
+        deletion_delay_minutes=7*24*60,
         authentication=FakeAuthentication(),
     )
 
