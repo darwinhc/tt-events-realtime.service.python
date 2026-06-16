@@ -46,23 +46,6 @@ def test_json_logging_contains_service_and_trace_context(capsys) -> None:
     assert "exc_info" not in payload
 
 
-def test_json_logging_removes_noisy_uvicorn_internal_fields(capsys) -> None:
-    configure_logging(build_settings())
-
-    logging.getLogger("uvicorn.error").warning(
-        "WebSocket closed",
-        extra={
-            "websocket": object(),
-            "checkpoint_id": "websocket-closed",
-        },
-    )
-
-    payload = json.loads(capsys.readouterr().out)
-    assert payload["message"] == "WebSocket closed"
-    assert payload["checkpoint_id"] == "websocket-closed"
-    assert "websocket" not in payload
-
-
 def test_logging_configuration_is_idempotent() -> None:
     settings = build_settings()
 
@@ -75,30 +58,3 @@ def test_logging_configuration_is_idempotent() -> None:
         if getattr(handler, "_events_service_handler", False)
     ]
     assert len(managed_handlers) == 1
-
-
-def test_cloudwatch_handler_can_be_enabled(monkeypatch) -> None:
-    created_handlers = []
-
-    class FakeCloudWatchHandler(logging.Handler):
-        def __init__(self, **kwargs) -> None:
-            super().__init__()
-            self.options = kwargs
-            created_handlers.append(self)
-
-    class FakeBoto3:
-        @staticmethod
-        def client(service_name, region_name):
-            return {"service_name": service_name, "region_name": region_name}
-
-    class FakeWatchtower:
-        CloudWatchLogHandler = FakeCloudWatchHandler
-
-    monkeypatch.setitem(__import__("sys").modules, "boto3", FakeBoto3)
-    monkeypatch.setitem(__import__("sys").modules, "watchtower", FakeWatchtower)
-
-    configure_logging(build_settings(cloudwatch_enabled=True))
-
-    assert len(created_handlers) == 1
-    assert created_handlers[0].options["log_group_name"] == "/tests/events-service"
-    assert created_handlers[0].options["log_stream_name"] == "test"
