@@ -24,10 +24,6 @@ class SQLAlchemyDatabase:
             expire_on_commit=False,
         )
 
-    def initialize(self) -> None:
-        """Create all tables declared by the infrastructure models."""
-        Base.metadata.create_all(self.engine)
-
     def dispose(self) -> None:
         """Release pooled database connections."""
         self.engine.dispose()

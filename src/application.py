@@ -87,7 +87,6 @@ def build_application(
         current_settings.database_url,
         echo=current_settings.sqlalchemy_echo,
     )
-    database.initialize()
     locations = SQLAlchemyLocationsRepository(database)
     users = SQLAlchemyUsersRepository(database)
     authentication = SimpleNameAuthentication(users)

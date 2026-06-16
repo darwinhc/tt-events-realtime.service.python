@@ -4,6 +4,7 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
+from src.infra.database.sqlalchemy.models import Base
 from src.domain.dtos import EventFilters
 from src.domain.entities import (
     Event,
@@ -26,8 +27,9 @@ from src.domain.entities import User
 
 @pytest.fixture
 def database(tmp_path):
-    database = SQLAlchemyDatabase(f"sqlite:///{tmp_path / 'events.db'}")
-    database.initialize()
+    database_url = f"sqlite:///{tmp_path / 'events.db'}"
+    database = SQLAlchemyDatabase(database_url)
+    Base.metadata.create_all(database.engine)
     yield database
     database.dispose()
 

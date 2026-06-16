@@ -3,14 +3,13 @@
 import logging
 from datetime import datetime, timezone
 
+import pytest
 from fastapi.testclient import TestClient
 
+from src.infra.database.sqlalchemy.models import Base
 from src.application import build_application
 from src.domain.dtos import EventFilters, EventQuery
 from src.domain.entities import Location
-from src.entrypoints.fastapi.internal import (
-    create_fastapi_app as create_internal_app,
-)
 from src.entrypoints.fastapi.users import create_fastapi_app
 from src.infra.config import Settings
 
@@ -22,22 +21,24 @@ def build_test_settings(database_url: str) -> Settings:
         database_url=database_url,
         sqlalchemy_echo=False,
         log_level="ERROR",
-        log_format="json",
-        cloudwatch_enabled=False,
-        cloudwatch_group="/tests/events-service",
-        cloudwatch_stream="test",
-        aws_region="eu-central-1",
     )
 
-
-def test_creates_event_with_internal_identity_and_embedded_location(
-    tmp_path,
-) -> None:
+@pytest.fixture
+def application(tmp_path):
     application = build_application(
         build_test_settings(f"sqlite:///{tmp_path / 'events.db'}")
     )
-    client = TestClient(create_fastapi_app(application))
+    Base.metadata.create_all(application.database.engine)
+    return application
 
+@pytest.fixture
+def client(application):
+    return TestClient(create_fastapi_app(application))
+
+
+def test_creates_event_with_internal_identity_and_embedded_location(
+    client, application
+) -> None:
     event_response = client.post(
         "/events",
         headers={"Authorization": "Bearer darwin"},
@@ -106,24 +107,14 @@ def test_creates_event_with_internal_identity_and_embedded_location(
     assert filtered_events.items[0].location.name == "Main Hall"
 
 
-def test_health_check_confirms_database_connectivity(tmp_path) -> None:
-    application = build_application(
-        build_test_settings(f"sqlite:///{tmp_path / 'events.db'}")
-    )
-    client = TestClient(create_fastapi_app(application))
-
+def test_health_check_confirms_database_connectivity(client) -> None:
     response = client.get("/health")
 
     assert response.status_code == 200
     assert response.json() == {"status": "ok"}
 
 
-def test_authentication_is_internal_and_not_exposed(tmp_path) -> None:
-    application = build_application(
-        build_test_settings(f"sqlite:///{tmp_path / 'events.db'}")
-    )
-    client = TestClient(create_fastapi_app(application))
-
+def test_authentication_is_internal_and_not_exposed(client) -> None:
     response = client.post(
         "/users/authenticate",
         json={"user_name": "darwin"},
@@ -145,11 +136,7 @@ def test_authentication_is_internal_and_not_exposed(tmp_path) -> None:
     assert "/internal/events" not in schema["paths"]
 
 
-def test_event_creation_requires_a_bearer_user_token(tmp_path) -> None:
-    application = build_application(
-        build_test_settings(f"sqlite:///{tmp_path / 'events.db'}")
-    )
-    client = TestClient(create_fastapi_app(application))
+def test_event_creation_requires_a_bearer_user_token(client) -> None:
     payload = {
         "title": "Protected event",
         "duration_in_minutes": 60,
@@ -168,11 +155,7 @@ def test_event_creation_requires_a_bearer_user_token(tmp_path) -> None:
     assert wrong_scheme.status_code == 401
 
 
-def test_event_api_rejects_legacy_hour_duration_field(tmp_path) -> None:
-    application = build_application(
-        build_test_settings(f"sqlite:///{tmp_path / 'events.db'}")
-    )
-    client = TestClient(create_fastapi_app(application))
+def test_event_api_rejects_legacy_hour_duration_field(client) -> None:
     response = client.post(
         "/events",
         headers={"Authorization": "Bearer darwin"},
@@ -186,12 +169,7 @@ def test_event_api_rejects_legacy_hour_duration_field(tmp_path) -> None:
     assert response.status_code == 422
 
 
-def test_creates_event_and_resolves_embedded_location(tmp_path) -> None:
-    application = build_application(
-        build_test_settings(f"sqlite:///{tmp_path / 'events.db'}")
-    )
-    client = TestClient(create_fastapi_app(application))
-
+def test_creates_event_and_resolves_embedded_location(client) -> None:
     response = client.post(
         "/events",
         headers={"Authorization": "Bearer darwin"},
@@ -225,11 +203,7 @@ def test_creates_event_and_resolves_embedded_location(tmp_path) -> None:
     assert event_details["location"]["postal_code"] == "10178"
 
 
-def test_lists_and_updates_locations_used_by_events(tmp_path) -> None:
-    application = build_application(
-        build_test_settings(f"sqlite:///{tmp_path / 'events.db'}")
-    )
-    client = TestClient(create_fastapi_app(application))
+def test_lists_and_updates_locations_used_by_events(client) -> None:
     event = client.post(
         "/events",
         headers={"Authorization": "Bearer darwin"},
@@ -267,12 +241,7 @@ def test_lists_and_updates_locations_used_by_events(tmp_path) -> None:
     assert event_after.json()["location"] == updated.json()
 
 
-def test_location_update_rejects_missing_or_invalid_location(tmp_path) -> None:
-    application = build_application(
-        build_test_settings(f"sqlite:///{tmp_path / 'events.db'}")
-    )
-    client = TestClient(create_fastapi_app(application))
-
+def test_location_update_rejects_missing_or_invalid_location(client) -> None:
     missing = client.patch("/locations/999", json={"name": "Missing"})
     empty = client.patch("/locations/999", json={})
 
@@ -280,11 +249,7 @@ def test_location_update_rejects_missing_or_invalid_location(tmp_path) -> None:
     assert empty.status_code == 422
 
 
-def test_join_rejects_completed_event_and_accepts_future_event(tmp_path) -> None:
-    application = build_application(
-        build_test_settings(f"sqlite:///{tmp_path / 'events.db'}")
-    )
-    client = TestClient(create_fastapi_app(application))
+def test_join_rejects_completed_event_and_accepts_future_event(client) -> None:
     completed = client.post(
         "/events",
         headers={"Authorization": "Bearer organizer"},
@@ -326,11 +291,7 @@ def test_join_rejects_completed_event_and_accepts_future_event(tmp_path) -> None
     assert client.get(f"/events/{future['id']}").json()["joiners_count"] == 1
 
 
-def test_internal_use_case_lists_expired_active_events(tmp_path) -> None:
-    application = build_application(
-        build_test_settings(f"sqlite:///{tmp_path / 'events.db'}")
-    )
-    client = TestClient(create_fastapi_app(application))
+def test_internal_use_case_lists_expired_active_events(client) -> None:
     expired = client.post(
         "/events",
         headers={"Authorization": "Bearer darwin"},
@@ -377,11 +338,7 @@ def test_internal_use_case_lists_expired_active_events(tmp_path) -> None:
 
 
 
-def test_joins_and_leaves_event(tmp_path) -> None:
-    application = build_application(
-        build_test_settings(f"sqlite:///{tmp_path / 'events.db'}")
-    )
-    client = TestClient(create_fastapi_app(application))
+def test_joins_and_leaves_event(client) -> None:
     event = client.post(
         "/events",
         headers={"Authorization": "Bearer darwin"},
@@ -446,10 +403,7 @@ def test_joins_and_leaves_event(tmp_path) -> None:
     assert rejoin_response.json()["left_at"] is None
 
 
-def test_only_organizer_can_update_event(tmp_path) -> None:
-    application = build_application(
-        build_test_settings(f"sqlite:///{tmp_path / 'events.db'}")
-    )
+def test_only_organizer_can_update_event(application) -> None:
     client = TestClient(create_fastapi_app(application))
     now = datetime(2026, 8, 20, 12, tzinfo=timezone.utc)
     first_location = application.create_location(
@@ -502,12 +456,7 @@ def test_only_organizer_can_update_event(tmp_path) -> None:
     assert current_json["location"] == second_location.model_dump(mode="json", exclude={"created_at"})
 
 
-def test_update_requires_identity_and_valid_payload(tmp_path) -> None:
-    application = build_application(
-        build_test_settings(f"sqlite:///{tmp_path / 'events.db'}")
-    )
-    client = TestClient(create_fastapi_app(application))
-
+def test_update_requires_identity_and_valid_payload(client) -> None:
     missing_identity = client.patch("/events/1", json={"title": "No actor"})
     empty_update = client.patch(
         "/events/1",
@@ -526,14 +475,9 @@ def test_update_requires_identity_and_valid_payload(tmp_path) -> None:
 
 
 def test_http_logging_exposes_request_context_and_transaction_id(
-    tmp_path,
+    client,
     caplog,
 ) -> None:
-    application = build_application(
-        build_test_settings(f"sqlite:///{tmp_path / 'events.db'}")
-    )
-    client = TestClient(create_fastapi_app(application))
-
     with caplog.at_level(
         logging.INFO,
         logger="src.entrypoints.fastapi.users.fastapi_app",

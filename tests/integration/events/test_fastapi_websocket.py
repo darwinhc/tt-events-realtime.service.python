@@ -7,6 +7,7 @@ import threading
 from fastapi import WebSocket
 from fastapi.testclient import TestClient
 
+from src.infra.database.sqlalchemy.models import Base
 from src.application import build_application
 from src.entrypoints.fastapi.users import create_fastapi_app
 from src.infra.config import Settings
@@ -39,11 +40,6 @@ def _settings(database_url: str) -> Settings:
         database_url=database_url,
         sqlalchemy_echo=False,
         log_level="ERROR",
-        log_format="json",
-        cloudwatch_enabled=False,
-        cloudwatch_group="/tests/events-service",
-        cloudwatch_stream="test",
-        aws_region="eu-central-1",
     )
 
 
@@ -56,6 +52,9 @@ def _build_client(
         _settings(f"sqlite:///{tmp_path / 'events.db'}"),
         realtime=publisher,
     )
+
+    Base.metadata.create_all(application.database.engine)
+
     return TestClient(
         create_fastapi_app(application, realtime=publisher)
     )
