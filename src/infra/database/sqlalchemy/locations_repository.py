@@ -116,7 +116,7 @@ class SQLAlchemyLocationsRepository(LocationsRepository):
 
     def delete_unused_locations_from_datetime(self, threshold: datetime) -> int:
         """Delete old unused locations."""
-        with self._database.sessions().begin() as session:
+        with self._database.sessions.begin() as session:
             locations_to_delete = session.execute(
                 select(LocationModel)
                 .where(LocationModel.created_at < threshold)

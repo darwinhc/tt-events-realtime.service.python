@@ -7,37 +7,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 from pydantic import BaseModel, ConfigDict
 
-
-def _read_bool(name: str, default: bool) -> bool:
-    value = os.getenv(name)
-    if value is None:
-        return default
-    normalized_value = value.strip().lower()
-    if normalized_value in {"1", "true", "yes", "on"}:
-        return True
-    if normalized_value in {"0", "false", "no", "off"}:
-        return False
-    raise ValueError(f"{name} must be a boolean value.")
-
-
-def _read_choice(name: str, default: str, choices: set[str]) -> str:
-    value = os.getenv(name, default).strip().lower()
-    if value not in choices:
-        expected_values = ", ".join(sorted(choices))
-        raise ValueError(f"{name} must be one of: {expected_values}.")
-    return value
-
-
-def _read_non_negative_int(name: str, default: int) -> int:
-    value = os.getenv(name, str(default)).strip()
-    try:
-        parsed_value = int(value)
-    except ValueError as error:
-        raise ValueError(f"{name} must be a non-negative integer.") from error
-    if parsed_value < 0:
-        raise ValueError(f"{name} must be a non-negative integer.")
-    return parsed_value
-
+from .utils import read_bool, read_choice, read_non_negative_int
 
 class Settings(BaseModel):
     """Runtime configuration shared by all entry points."""
@@ -72,12 +42,12 @@ def get_settings() -> Settings:
         "EVENTS_DATABASE_URL",
         "sqlite:///data/events.db",
     ).strip()
-    log_level = _read_choice(
+    log_level = read_choice(
         "LOG_LEVEL",
         "INFO",
         {"debug", "info", "warning", "error", "critical"},
     ).upper()
-    log_format = _read_choice("LOG_FORMAT", "json", {"json", "text"})
+    log_format = read_choice("LOG_FORMAT", "json", {"json", "text"})
     cloudwatch_group = os.getenv(
         "LOG_CLOUDWATCH_GROUP",
         f"/applications/{app_name}",
@@ -109,20 +79,20 @@ def get_settings() -> Settings:
         app_name=app_name,
         environment=environment,
         database_url=database_url,
-        sqlalchemy_echo=_read_bool("SQLALCHEMY_ECHO", False),
+        sqlalchemy_echo=read_bool("SQLALCHEMY_ECHO", False),
         log_level=log_level,
         log_format=log_format,
-        cloudwatch_enabled=_read_bool("LOG_CLOUDWATCH_ENABLED", False),
+        cloudwatch_enabled=read_bool("LOG_CLOUDWATCH_ENABLED", False),
         cloudwatch_group=cloudwatch_group,
         cloudwatch_stream=cloudwatch_stream,
         aws_region=aws_region,
-        event_deletion_delay_minutes=_read_non_negative_int(
+        event_deletion_delay_minutes=read_non_negative_int(
             "EVENT_DELETION_DELAY_MINUTES",
-            7,
+            120,
         ),
-        canceled_event_deletion_delay_minutes=_read_non_negative_int(
+        canceled_event_deletion_delay_minutes=read_non_negative_int(
             "CANCELED_EVENT_DELETION_DELAY_MINUTES",
-            1,
+            120,
         ),
         cors_allowed_origins=cors_allowed_origins,
     )

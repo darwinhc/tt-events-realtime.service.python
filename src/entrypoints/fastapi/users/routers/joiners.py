@@ -4,8 +4,8 @@ from fastapi import APIRouter, Depends, Request
 
 from src.domain.dtos import JoinEventRequest
 from src.domain.entities import Joiner
-from src.entrypoints.users.dependencies import user_name_from_token
-from src.entrypoints.users.openapi import (
+from src.entrypoints.fastapi.users.dependencies import user_name_from_token
+from src.entrypoints.fastapi.users.openapi import (
     AUTH_ERROR_RESPONSES,
     COMMON_ERROR_RESPONSES,
     CONFLICT_RESPONSE,

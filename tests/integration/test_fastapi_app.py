@@ -7,10 +7,10 @@ from fastapi.testclient import TestClient
 from src.application import build_application
 from src.domain.dtos import EventFilters, EventQuery
 from src.domain.entities import Location
-from src.entrypoints.internal.fastapi_app import (
+from src.entrypoints.fastapi.internal import (
     create_fastapi_app as create_internal_app,
 )
-from src.entrypoints.users.fastapi_app import create_fastapi_app
+from src.entrypoints.fastapi.users import create_fastapi_app
 from src.infra.config import Settings
 
 

@@ -6,7 +6,7 @@ from typing import Optional
 from fastapi import FastAPI, Query
 from sqlalchemy import text
 
-from src.entrypoints.register_fastapi_exception_handlers import register_fast_api_exception_handlers
+from src.entrypoints.fastapi.register_fastapi_exception_handlers import register_fast_api_exception_handlers
 from src.application import Application, build_application
 from src.domain.dtos import EventFilters, EventPage, EventQuery
 from src.domain.entities import EventStatus

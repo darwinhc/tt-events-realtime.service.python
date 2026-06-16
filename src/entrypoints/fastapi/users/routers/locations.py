@@ -4,7 +4,7 @@ from fastapi import APIRouter, Request
 
 from src.domain.dtos import LocationUpdate
 from src.domain.entities import Location
-from src.entrypoints.users.openapi import COMMON_ERROR_RESPONSES, NOT_FOUND_RESPONSE
+from src.entrypoints.fastapi.users.openapi import COMMON_ERROR_RESPONSES, NOT_FOUND_RESPONSE
 
 router = APIRouter(prefix="/locations", tags=["Locations"])
 

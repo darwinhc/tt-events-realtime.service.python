@@ -240,21 +240,60 @@ class SQLAlchemyEventsRepository(EventsRepository):
             raise ValueError("Deletion cutoff must include a timezone.")
         cutoff = as_of.astimezone(timezone.utc)
         with self._database.sessions.begin() as session:
-            result = session.execute(
-                delete(EventModel).where(
+            events_to_delete = session.execute(
+                select(
+                    EventModel.id,
+                    EventModel.title,
+                    EventModel.deletion_scheduled_at,
+                ).where(
                     EventModel.deletion_scheduled_at.is_not(None),
                     EventModel.deletion_scheduled_at <= cutoff,
                 )
+            ).all()
+
+
+            if not events_to_delete:
+                logger.info(
+                    "No expired events found for deletion",
+                    extra={
+                        "checkpoint_id": "no-expired-events-to-delete",
+                        "deleted_count": 0,
+                    },
+                )
+                return 0
+
+            events_id_to_delete = []
+            for event in events_to_delete:
+                logger.debug(
+                    "Event found for deletion: event_id=%s, title=%s, deletion_scheduled_at=%s",
+                    event.id,
+                    event.title,
+                    event.deletion_scheduled_at,
+                    extra={
+                        "checkpoint_id": "event-found-for-deletion",
+                        "event_id": event.id,
+                        "event_title": event.title,
+                        "deletion_scheduled_at": event.deletion_scheduled_at,
+                    },
+                )
+                events_id_to_delete.append(event.id)
+
+            session.execute(
+                delete(EventModel).where(
+                    EventModel.id.in_(events_id_to_delete),
+                )
             )
-            deleted_count = result.rowcount or 0
+            n = len(events_id_to_delete)
             logger.info(
                 "Expired events deleted",
                 extra={
                     "checkpoint_id": "expired-events-deleted",
-                    "deleted_count": deleted_count,
+                    "deleted_count": n,
+                    "deleted_event_ids": events_id_to_delete,
                 },
             )
-            return deleted_count
+
+            return n
 
     @staticmethod
     def _model_values(event: Event) -> dict:

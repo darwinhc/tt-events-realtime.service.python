@@ -5,7 +5,7 @@ import pytest
 from src.infra.config.settings import (
     _read_bool,
     _read_choice,
-    _read_non_negative_int,
+    read_non_negative_int,
     get_settings,
 )
 
@@ -61,10 +61,10 @@ def test_choice_and_non_negative_integer_validation(monkeypatch) -> None:
 
     monkeypatch.setenv("COUNT", "not-a-number")
     with pytest.raises(ValueError, match="non-negative"):
-        _read_non_negative_int("COUNT", 1)
+        read_non_negative_int("COUNT", 1)
     monkeypatch.setenv("COUNT", "-1")
     with pytest.raises(ValueError, match="non-negative"):
-        _read_non_negative_int("COUNT", 1)
+        read_non_negative_int("COUNT", 1)
 
 
 def test_empty_required_setting_is_rejected(monkeypatch) -> None:
