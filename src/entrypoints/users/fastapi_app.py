@@ -6,69 +6,31 @@ from typing import Optional
 from uuid import uuid4
 
 from fastapi import (
-    Depends,
     FastAPI,
-    HTTPException,
     Request,
     WebSocket,
     WebSocketDisconnect,
 )
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from pydantic import ValidationError
+from fastapi.security import HTTPBearer
 from sqlalchemy import text
 
 from src.application import Application, build_application
-from src.domain.dtos import (
-    EventCreate,
-    EventDetails,
-    EventUpdate,
-    JoinEventRequest,
-    LocationUpdate,
-)
-from src.domain.entities import Event, Joiner, Location
-from src.domain.exceptions import (
-    AuthorizationError,
-    DomainValidationError,
-    EntityConflictError,
-    EntityNotFoundError,
-)
-from src.infra.events.fastapi_websocket import FastAPIWebSocketPublisher
+from src.entrypoints.register_fastapi_exception_handlers import register_fast_api_exception_handlers
+from src.entrypoints.users.openapi import OPENAPI_TAGS
+from src.entrypoints.users.routers import events_router, locations_router, joiners_router
 from src.infra.config import get_settings
+from src.infra.events.fastapi_websocket import FastAPIWebSocketPublisher
 from src.infra.logging import reset_transaction_id, set_transaction_id
-
 
 logger = logging.getLogger(__name__)
 _bearer_scheme = HTTPBearer(auto_error=False)
 
 
-def _user_name_from_token(
-    credentials: Optional[HTTPAuthorizationCredentials] = Depends(
-        _bearer_scheme
-    ),
-) -> str:
-    """Return the visible user encoded as the bearer token."""
-    if credentials is None:
-        raise HTTPException(
-            status_code=401,
-            detail="Authorization bearer token is required.",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    user_name = credentials.credentials.strip()
-    if not user_name or len(user_name) > 64:
-        raise HTTPException(
-            status_code=401,
-            detail="Authorization bearer token is invalid.",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    return user_name
-
-
 def create_fastapi_app(
-    application: Optional[Application] = None,
-    realtime: Optional[FastAPIWebSocketPublisher] = None,
-    cors_allowed_origins: Optional[tuple[str, ...]] = None,
+        application: Optional[Application] = None,
+        realtime: Optional[FastAPIWebSocketPublisher] = None,
+        cors_allowed_origins: Optional[tuple[str, ...]] = None,
 ) -> FastAPI:
     """Create the HTTP adapter around an already composed application."""
     runtime_settings = get_settings() if application is None else None
@@ -80,8 +42,14 @@ def create_fastapi_app(
     realtime_publisher = realtime_publisher or FastAPIWebSocketPublisher()
 
     app = FastAPI(
-        title="events service",
-        summary="Receives and stores events, organizers, and flexible locations",
+        title="Events Service",
+        summary="Receives and stores events, organizers, joiners, and flexible locations.",
+        description=(
+            "Events Service exposes HTTP and WebSocket APIs to manage events, "
+            "locations, attendance, and realtime updates."
+        ),
+        version="1.0.0",
+        openapi_tags=OPENAPI_TAGS,
     )
     app.state.application = application or build_application(
         settings=runtime_settings,
@@ -150,40 +118,7 @@ def create_fastapi_app(
         finally:
             reset_transaction_id(token)
 
-    @app.exception_handler(DomainValidationError)
-    async def handle_domain_validation(
-        _request: Request,
-        error: DomainValidationError,
-    ) -> JSONResponse:
-        return JSONResponse(status_code=422, content={"detail": str(error)})
-
-    @app.exception_handler(ValidationError)
-    async def handle_pydantic_validation(
-        _request: Request,
-        error: ValidationError,
-    ) -> JSONResponse:
-        return JSONResponse(status_code=422, content={"detail": error.errors()})
-
-    @app.exception_handler(EntityNotFoundError)
-    async def handle_entity_not_found(
-        _request: Request,
-        error: EntityNotFoundError,
-    ) -> JSONResponse:
-        return JSONResponse(status_code=404, content={"detail": str(error)})
-
-    @app.exception_handler(EntityConflictError)
-    async def handle_entity_conflict(
-        _request: Request,
-        error: EntityConflictError,
-    ) -> JSONResponse:
-        return JSONResponse(status_code=409, content={"detail": str(error)})
-
-    @app.exception_handler(AuthorizationError)
-    async def handle_authorization_error(
-        _request: Request,
-        error: AuthorizationError,
-    ) -> JSONResponse:
-        return JSONResponse(status_code=403, content={"detail": str(error)})
+    register_fast_api_exception_handlers(app)
 
     @app.get("/health", include_in_schema=False)
     async def health() -> dict[str, str]:
@@ -191,95 +126,9 @@ def create_fastapi_app(
             connection.execute(text("SELECT 1"))
         return {"status": "ok"}
 
-    @app.post("/events", status_code=201, response_model=Event)
-    async def create_event(
-        request: EventCreate,
-        user_name: str = Depends(_user_name_from_token),
-    ) -> Event:
-        return app.state.application.create_event_and_resolve_location(
-            event=request.to_event(organizer=user_name),
-        )
-
-    @app.get("/events", response_model=list[EventDetails])
-    async def get_visible_events() -> list[EventDetails]:
-        return app.state.application.get_visible_events()
-
-    @app.get("/events/{event_id}", response_model=EventDetails)
-    async def get_event(event_id: int) -> EventDetails:
-        return app.state.application.get_event(event_id=event_id)
-
-    @app.get("/locations", response_model=list[Location])
-    async def get_locations() -> list[Location]:
-        return app.state.application.get_locations()
-
-    @app.patch("/locations/{location_id}", response_model=Location)
-    async def update_location(
-        location_id: int,
-        changes: LocationUpdate,
-    ) -> Location:
-        return app.state.application.update_location(
-            location_id=location_id,
-            changes=changes,
-        )
-
-    @app.patch("/events/{event_id}", response_model=Event)
-    async def update_event(
-        event_id: int,
-        changes: EventUpdate,
-        user_name: str = Depends(_user_name_from_token),
-    ) -> Event:
-        return app.state.application.update_event(
-            event_id=event_id,
-            actor_user_name=user_name,
-            changes=changes,
-        )
-
-    @app.post("/events/{event_id}/cancel", response_model=Event)
-    async def cancel_event(
-        event_id: int,
-        user_name: str = Depends(_user_name_from_token),
-    ) -> Event:
-        return app.state.application.cancel_event(
-            event_id=event_id,
-            actor_user_name=user_name,
-        )
-
-    @app.post("/events/{event_id}/uncancel", response_model=Event)
-    async def uncancel_event(
-        event_id: int,
-        user_name: str = Depends(_user_name_from_token),
-    ) -> Event:
-        return app.state.application.uncancel_event(
-            event_id=event_id,
-            actor_user_name=user_name,
-        )
-
-    @app.post("/joiners", status_code=201, response_model=Joiner)
-    async def join_event(
-        request: JoinEventRequest,
-        user_name: str = Depends(_user_name_from_token),
-    ) -> Joiner:
-        return app.state.application.join_event(
-            user_name=user_name,
-            event_id=request.event_id,
-        )
-
-    @app.get("/events/{event_id}/joiners", response_model=list[Joiner])
-    async def get_all_guests(event_id: int) -> list[Joiner]:
-        return app.state.application.get_all_guests(event_id=event_id)
-
-    @app.delete(
-        "/joiners/{event_id}",
-        response_model=Joiner,
-    )
-    async def leave_event(
-        event_id: int,
-        user_name: str = Depends(_user_name_from_token),
-    ) -> Joiner:
-        return app.state.application.leave_event(
-            user_name=user_name,
-            event_id=event_id,
-        )
+    app.include_router(events_router)
+    app.include_router(locations_router)
+    app.include_router(joiners_router)
 
     @app.websocket("/ws/events")
     async def all_events_websocket(websocket: WebSocket) -> None:

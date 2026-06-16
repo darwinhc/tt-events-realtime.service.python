@@ -7,8 +7,8 @@ from fastapi.testclient import TestClient
 from src.application import build_application
 from src.domain.dtos import EventFilters, EventQuery
 from src.domain.entities import Location
-from src.entrypoints.admon.fastapi_app import (
-    create_fastapi_app as create_admon_app,
+from src.entrypoints.internal.fastapi_app import (
+    create_fastapi_app as create_internal_app,
 )
 from src.entrypoints.users.fastapi_app import create_fastapi_app
 from src.infra.config import Settings
@@ -365,8 +365,8 @@ def test_internal_use_case_lists_expired_active_events(tmp_path) -> None:
 
     events = application.get_expired_active_events()
     operational_response = client.get("/events")
-    admon_client = TestClient(create_admon_app(application))
-    internal_response = admon_client.get(
+    internal_client = TestClient(create_internal_app(application))
+    internal_response = internal_client.get(
         "/events",
         params={
             "status": "active",
@@ -379,7 +379,7 @@ def test_internal_use_case_lists_expired_active_events(tmp_path) -> None:
     public_operation = client.get("/openapi.json").json()["paths"]["/events"][
         "get"
     ]
-    admon_operation = admon_client.get("/openapi.json").json()["paths"][
+    internal_operation = internal_client.get("/openapi.json").json()["paths"][
         "/events"
     ]["get"]
 
@@ -400,7 +400,7 @@ def test_internal_use_case_lists_expired_active_events(tmp_path) -> None:
     assert public_operation.get("parameters", []) == []
     assert {
         parameter["name"]
-        for parameter in admon_operation["parameters"]
+        for parameter in internal_operation["parameters"]
     } == {
         "status",
         "name",

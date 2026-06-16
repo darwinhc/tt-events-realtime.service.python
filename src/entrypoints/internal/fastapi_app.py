@@ -3,18 +3,13 @@
 from datetime import date, datetime
 from typing import Optional
 
-from fastapi import FastAPI, Query, Request
-from fastapi.responses import JSONResponse
-from pydantic import ValidationError
+from fastapi import FastAPI, Query
 from sqlalchemy import text
 
+from src.entrypoints.register_fastapi_exception_handlers import register_fast_api_exception_handlers
 from src.application import Application, build_application
 from src.domain.dtos import EventFilters, EventPage, EventQuery
 from src.domain.entities import EventStatus
-from src.domain.exceptions import (
-    DomainValidationError,
-    EntityNotFoundError,
-)
 from src.infra.config import get_settings
 
 
@@ -23,33 +18,13 @@ def create_fastapi_app(
 ) -> FastAPI:
     """Create the internal administrative HTTP application."""
     app = FastAPI(
-        title="events service administration",
+        title="Events service administration",
         summary="Internal event querying and administration",
     )
     app.state.application = application or build_application(
         settings=get_settings()
     )
-
-    @app.exception_handler(DomainValidationError)
-    async def handle_domain_validation(
-        _request: Request,
-        error: DomainValidationError,
-    ) -> JSONResponse:
-        return JSONResponse(status_code=422, content={"detail": str(error)})
-
-    @app.exception_handler(ValidationError)
-    async def handle_pydantic_validation(
-        _request: Request,
-        error: ValidationError,
-    ) -> JSONResponse:
-        return JSONResponse(status_code=422, content={"detail": error.errors()})
-
-    @app.exception_handler(EntityNotFoundError)
-    async def handle_entity_not_found(
-        _request: Request,
-        error: EntityNotFoundError,
-    ) -> JSONResponse:
-        return JSONResponse(status_code=404, content={"detail": str(error)})
+    register_fast_api_exception_handlers(app)
 
     @app.get("/health", include_in_schema=False)
     async def health() -> dict[str, str]:
