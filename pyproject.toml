@@ -34,7 +34,7 @@ include = ["src", "src.*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "--cov=src --cov-branch --cov-report=term-missing --cov-fail-under=80"
+addopts = "--cov=src --cov=migrations --cov-branch --cov-report=term-missing --cov-fail-under=85"
 
 [tool.pylint.main]
 ignore-paths = ["^tests/"]
@@ -47,7 +47,6 @@ max-statements = 60
 
 [tool.pylint.messages_control]
 disable = [
-    "duplicate-code",
     "too-few-public-methods",
 ]
 

@@ -2,16 +2,31 @@
 
 import logging
 from datetime import datetime, timezone
+from pathlib import Path
 
 import pytest
+from alembic import command
+from alembic.config import Config
 from fastapi.testclient import TestClient
 
-from src.infra.database.sqlalchemy.models import Base
 from src.application import build_application
 from src.domain.dtos import EventFilters, EventQuery
 from src.domain.entities import Location
 from src.entrypoints.fastapi.users import create_fastapi_app
 from src.infra.config import Settings
+
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+
+
+def run_migrations(database_url: str) -> None:
+    alembic_cfg = Config(str(PROJECT_ROOT / "alembic.ini"))
+    alembic_cfg.cmd_opts = type(
+        "CommandOptions",
+        (),
+        {"x": [f"database_url={database_url}"]},
+    )()
+    command.upgrade(alembic_cfg, "head")
 
 
 def build_test_settings(database_url: str) -> Settings:
@@ -25,10 +40,11 @@ def build_test_settings(database_url: str) -> Settings:
 
 @pytest.fixture
 def application(tmp_path):
+    database_url = f"sqlite:///{tmp_path / 'events.db'}"
+    run_migrations(database_url)
     application = build_application(
-        build_test_settings(f"sqlite:///{tmp_path / 'events.db'}")
+        build_test_settings(database_url)
     )
-    Base.metadata.create_all(application.database.engine)
     return application
 
 @pytest.fixture

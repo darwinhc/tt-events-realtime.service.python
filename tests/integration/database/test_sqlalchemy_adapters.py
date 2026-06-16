@@ -1,8 +1,11 @@
 """SQLAlchemy adapter integration tests using SQLite."""
 
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 import pytest
+from alembic import command
+from alembic.config import Config
 
 from src.infra.database.sqlalchemy.models import Base
 from src.domain.dtos import EventFilters
@@ -25,11 +28,24 @@ from src.infra.database.sqlalchemy import (
 )
 from src.domain.entities import User
 
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
+
+
+def run_migrations(database_url: str) -> None:
+    alembic_cfg = Config(str(PROJECT_ROOT / "alembic.ini"))
+    alembic_cfg.cmd_opts = type(
+        "CommandOptions",
+        (),
+        {"x": [f"database_url={database_url}"]},
+    )()
+    command.upgrade(alembic_cfg, "head")
+
+
 @pytest.fixture
 def database(tmp_path):
     database_url = f"sqlite:///{tmp_path / 'events.db'}"
     database = SQLAlchemyDatabase(database_url)
-    Base.metadata.create_all(database.engine)
+    run_migrations(database_url)
     yield database
     database.dispose()
 

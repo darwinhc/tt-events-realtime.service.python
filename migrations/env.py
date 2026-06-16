@@ -23,7 +23,7 @@ config = context.config
 
 # Configure Python logging from alembic.ini.
 if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
+    fileConfig(config.config_file_name, disable_existing_loggers=False)
 
 # Ensure the repository root is importable when Alembic is executed from a
 # different working directory. This complements `prepend_sys_path = .` in
