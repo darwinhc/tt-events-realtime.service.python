@@ -338,7 +338,7 @@ def test_websocket_logging_describes_connection_and_disconnection(
 
     with caplog.at_level(
         logging.INFO,
-        logger="src.entrypoints.users.fastapi_app",
+        logger="src.entrypoints.fastapi.users.fastapi_app",
     ):
         with client.websocket_connect(
             "/ws/events",

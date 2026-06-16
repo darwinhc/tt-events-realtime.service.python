@@ -1,7 +1,7 @@
 """SQLAlchemy implementation of the locations' repository."""
 
 import logging
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 from typing import Optional
 
 from sqlalchemy import select, exists, delete
@@ -34,7 +34,7 @@ class SQLAlchemyLocationsRepository(LocationsRepository):
                 postal_code=location.postal_code,
                 latitude=coordinates.latitude if coordinates else None,
                 longitude=coordinates.longitude if coordinates else None,
-                created_at=location.created_at,
+                created_at=location.created_at or datetime.now(timezone.utc),
             )
             session.add(model)
             session.flush()

@@ -64,17 +64,22 @@ def test_event_accepts_no_scheduled_date() -> None:
 
 
 def test_event_create_injects_identity_outside_the_public_payload() -> None:
+    now = datetime(2026, 8, 20, 12, 0, tzinfo=timezone.utc)
+    schedule_at = datetime(2026, 8, 20, 18, 0, tzinfo=timezone.utc)
     request = EventCreate(
         title=" Public event ",
         duration_in_minutes=60,
-        location=Location(address="Remote"),
+        location=Location(address="Remote", created_at=now),
+        scheduled_at=schedule_at
     )
 
     event = request.to_event(organizer="darwin")
 
     assert event.title == "Public event"
     assert event.organizer == "darwin"
-    assert event.location == Location(address="Remote")
+    assert event.location.created_at == now
+    assert event.location == Location(address="Remote", created_at=now)
+    assert event.scheduled_at == schedule_at
 
 
 def test_event_create_rejects_client_controlled_organizer() -> None:
@@ -130,7 +135,7 @@ def test_event_schedules_deletion_after_end_time() -> None:
         location_id=1,
     )
 
-    event_with_deletion = event.schedule_deletion_after_event(delay_minutes=7)
+    event_with_deletion = event.schedule_deletion_after_event(delay_minutes=7*24*60)
 
     assert event_with_deletion.status is EventStatus.ACTIVE
     assert event_with_deletion.deletion_scheduled_at == datetime(
@@ -161,10 +166,10 @@ def test_canceling_future_event_uses_earlier_cancellation_deletion_date() -> Non
         scheduled_at=datetime(2026, 8, 20, 18, 30, tzinfo=timezone.utc),
         duration_in_minutes=60,
         location_id=1,
-    ).schedule_deletion_after_event(7)
+    ).schedule_deletion_after_event(7*24*60)
     canceled_at = datetime(2026, 8, 10, 12, 0, tzinfo=timezone.utc)
 
-    canceled_event = event.cancel(canceled_at, deletion_delay_minutes=1)
+    canceled_event = event.cancel(canceled_at, deletion_delay_minutes=1*24*60)
 
     assert canceled_event.status is EventStatus.CANCELED
     assert canceled_event.canceled_at == canceled_at

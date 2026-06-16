@@ -15,7 +15,7 @@ class Joiner(BaseModel):
     user_id: int = Field(gt=0)
     user_name: str
     event_id: int = Field(gt=0)
-    joined_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    joined_at: Optional[datetime] = None
     left_at: Optional[datetime] = None
 
     @field_validator("user_name")

@@ -50,7 +50,7 @@ class SQLAlchemyJoinersRepository(JoinersRepository):
                 model = JoinerModel(
                     user_id=joiner.user_id,
                     event_id=joiner.event_id,
-                    joined_at=joiner.joined_at,
+                    joined_at=joiner.joined_at or datetime.now(timezone.utc),
                     left_at=None,
                 )
                 session.add(model)

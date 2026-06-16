@@ -35,7 +35,7 @@ class Location(BaseModel):
     postal_code: Optional[str] = None
     coordinates: Optional[GeoPoint] = None
     id: Optional[int] = Field(default=None, gt=0)
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: Optional[datetime] = None
 
     @field_validator(
         "name",
