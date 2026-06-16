@@ -14,11 +14,6 @@ def build_settings(**overrides) -> Settings:
         "database_url": "sqlite:///:memory:",
         "sqlalchemy_echo": False,
         "log_level": "INFO",
-        "log_format": "json",
-        "cloudwatch_enabled": False,
-        "cloudwatch_group": "/tests/events-service",
-        "cloudwatch_stream": "test",
-        "aws_region": "eu-central-1",
     }
     values.update(overrides)
     return Settings(**values)

@@ -22,7 +22,6 @@ def test_environment_overrides_dotenv(monkeypatch) -> None:
 
     assert settings.environment == "test"
     assert settings.log_level == "DEBUG"
-    assert settings.log_format == "text"
     assert settings.sqlalchemy_echo is True
     assert settings.cors_allowed_origins == (
         "https://app.example.com",
