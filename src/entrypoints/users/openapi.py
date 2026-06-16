@@ -13,10 +13,6 @@ OPENAPI_TAGS = [
         "name": "Joiners",
         "description": "Join events, leave events, and list event guests.",
     },
-    {
-        "name": "Realtime",
-        "description": "WebSocket API for realtime event notifications.",
-    },
 ]
 
 COMMON_ERROR_RESPONSES = {
