@@ -1,8 +1,8 @@
 """Verify event dates."""
 from datetime import datetime, timezone, timedelta
 
-from domain.entities import Event
-from domain.exceptions import DomainValidationError
+from src.domain.entities import Event
+from src.domain.exceptions import DomainValidationError
 
 
 def verify_event_dates_consistency(event: Event) -> None:

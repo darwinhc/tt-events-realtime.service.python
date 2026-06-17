@@ -5,6 +5,8 @@ from typing import Callable, Optional
 
 from pydantic import BaseModel, ConfigDict
 
+from .domain.dtos.joiner_info import JoinerInfo
+from .domain.use_cases.get_joiners_for_events import get_joiners_for_events
 from .domain.dtos import EventDetails, EventPage
 from .domain.entities import Event, Joiner, Location, User
 from .infra.auth import SimpleNameAuthentication
@@ -56,6 +58,7 @@ class Application(BaseModel):
     create_event_and_resolve_location: Callable[..., Event]
     get_event: Callable[..., EventDetails]
     get_visible_events: Callable[..., list[EventDetails]]
+    get_joiners_for_events: Callable[..., list[JoinerInfo]]
     get_events: Callable[..., list[EventDetails]]
     get_non_expired_events: Callable[..., EventPage]
     cancel_event: Callable[..., Event]
@@ -160,6 +163,7 @@ def build_application(
             events=events,
             authentication=authentication,
             deletion_delay_minutes=current_settings.event_deletion_delay_minutes,
+            deletion_delay_when_no_date_in_minutes=current_settings.event_deletion_delay_when_no_date_in_minutes,
             realtime=realtime_publisher,
         ),
         update_event=partial(
@@ -170,6 +174,10 @@ def build_application(
             deletion_delay_when_no_date_in_minutes=current_settings.event_deletion_delay_when_no_date_in_minutes,
             authentication=authentication,
             realtime=realtime_publisher,
+        ),
+        get_joiners_for_events=partial(
+            get_joiners_for_events,
+            joiners=joiners,
         ),
         join_event=partial(
             join_event,

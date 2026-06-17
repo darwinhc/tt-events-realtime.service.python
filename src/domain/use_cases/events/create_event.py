@@ -1,7 +1,6 @@
 """Create-event use case."""
-from datetime import datetime, timezone, timedelta
 
-from domain.use_cases.events.verify_event_dates import verify_event_dates_consistency
+from src.domain.use_cases.events.verify_event_dates import verify_event_dates_consistency
 from src.domain.entities import Event, EventStatus, RealtimeEvent
 from src.domain.exceptions import DomainValidationError
 from src.domain.ports.database import EventsRepository

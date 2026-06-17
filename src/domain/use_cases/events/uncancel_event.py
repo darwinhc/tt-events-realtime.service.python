@@ -15,6 +15,7 @@ def uncancel_event(
     actor_user_name: str,
     events: EventsRepository,
     deletion_delay_minutes: int,
+    deletion_delay_when_no_date_in_minutes: int,
     authentication: AuthenticationPort,
     realtime: RealtimeEventPublisher = NullRealtimeEventPublisher(),
 ) -> Event:
@@ -28,7 +29,10 @@ def uncancel_event(
             "Only the event organizer can uncancel this event."
         )
     updated_event = events.update(
-        event.uncancel(deletion_delay_minutes=deletion_delay_minutes)
+        event.uncancel(
+            deletion_delay_minutes=deletion_delay_minutes,
+            deletion_delay_when_no_date_in_minutes=deletion_delay_when_no_date_in_minutes,
+        )
     )
     realtime.publish(
         RealtimeEvent(

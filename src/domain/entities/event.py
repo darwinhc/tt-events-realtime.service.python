@@ -192,7 +192,9 @@ class Event(BaseModel):
             }
         )
 
-    def uncancel(self, deletion_delay_minutes: int) -> "Event":
+    def uncancel(
+        self, deletion_delay_minutes: int, deletion_delay_when_no_date_in_minutes: int
+    ) -> "Event":
         """Reactivate the event and restore its event-based deletion date."""
         if self.status is not EventStatus.CANCELED:
             raise DomainValidationError("Event is not canceled.")
@@ -201,7 +203,10 @@ class Event(BaseModel):
                 "status": EventStatus.ACTIVE,
                 "canceled_at": None,
             }
-        ).schedule_deletion_after_event(deletion_delay_minutes)
+        ).schedule_deletion_after_event(
+            delay_minutes=deletion_delay_minutes,
+            deletion_delay_when_no_date_in_minutes=deletion_delay_when_no_date_in_minutes
+        )
 
     @staticmethod
     def _validate_delay_minutes(value: int) -> None:
