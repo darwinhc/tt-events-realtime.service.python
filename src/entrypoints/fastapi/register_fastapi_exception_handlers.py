@@ -1,5 +1,6 @@
 """FastAPI exception handlers."""
 from fastapi import FastAPI, Request
+from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 from pydantic import ValidationError
 
@@ -22,7 +23,7 @@ def register_fast_api_exception_handlers(app: FastAPI):
         _request: Request,
         error: ValidationError,
     ) -> JSONResponse:
-        return JSONResponse(status_code=422, content={"detail": error.errors()})
+        return JSONResponse(status_code=422, content=jsonable_encoder({"detail": error.errors()}),)
 
     @app.exception_handler(EntityNotFoundError)
     async def handle_entity_not_found(
