@@ -19,7 +19,8 @@ class Settings(BaseModel):
     database_url: str
     sqlalchemy_echo: bool
     log_level: str
-    event_deletion_delay_minutes: int = 7*60*24
+    event_deletion_delay_minutes: int = 120
+    event_deletion_delay_when_no_date_in_minutes: int = 7*24*60
     location_unused_deletion_delay_minutes: int = 90
     canceled_event_deletion_delay_minutes: int = 90
     cors_allowed_origins: tuple[str, ...] = ()
@@ -75,6 +76,10 @@ def get_settings() -> Settings:
         event_deletion_delay_minutes=read_non_negative_int(
             "EVENT_DELETION_DELAY_MINUTES",
             120,
+        ),
+        event_deletion_delay_when_no_date_in_minutes=read_non_negative_int(
+            "EVENT_DELETION_DELAY_WHEN_NO_DATE_IN_MINUTES",
+            7*24*60,
         ),
         canceled_event_deletion_delay_minutes=read_non_negative_int(
             "CANCELED_EVENT_DELETION_DELAY_MINUTES",

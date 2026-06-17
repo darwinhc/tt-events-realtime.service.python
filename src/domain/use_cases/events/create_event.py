@@ -1,5 +1,7 @@
 """Create-event use case."""
+from datetime import datetime, timezone, timedelta
 
+from domain.use_cases.events.verify_event_dates import verify_event_dates_consistency
 from src.domain.entities import Event, EventStatus, RealtimeEvent
 from src.domain.exceptions import DomainValidationError
 from src.domain.ports.database import EventsRepository
@@ -15,6 +17,7 @@ def create_event(
     events: EventsRepository,
     deletion_delay_minutes: int,
     authentication: AuthenticationPort,
+    deletion_delay_when_no_date_in_minutes: int = 7*24*60,
     realtime: RealtimeEventPublisher = NullRealtimeEventPublisher(),
 ) -> Event:
     """Create an event with an optional date-to-be-defined schedule."""
@@ -33,10 +36,13 @@ def create_event(
             "deletion_scheduled_at": None,
         }
     )
-    event_with_deletion_policy = new_event.schedule_deletion_after_event(
-        delay_minutes=deletion_delay_minutes
+    _event = new_event.schedule_deletion_after_event(
+        delay_minutes=deletion_delay_minutes,
+        deletion_delay_when_no_date_in_minutes=deletion_delay_when_no_date_in_minutes
     )
-    created_event = events.create(event_with_deletion_policy)
+
+    verify_event_dates_consistency(_event)
+    created_event = events.create(_event)
     realtime.publish(
         RealtimeEvent(
             type="event.created",

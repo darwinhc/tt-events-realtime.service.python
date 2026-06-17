@@ -1,5 +1,7 @@
 """Update-event use case."""
+from datetime import datetime, timezone, timedelta
 
+from domain.use_cases.events.verify_event_dates import verify_event_dates_consistency
 from src.domain.dtos import EventUpdate
 from src.domain.entities import Event, EventStatus, RealtimeEvent
 from src.domain.exceptions import (
@@ -22,6 +24,7 @@ def update_event(
     events: EventsRepository,
     locations: LocationsRepository,
     deletion_delay_minutes: int,
+    deletion_delay_when_no_date_in_minutes: int,
     authentication: AuthenticationPort,
     realtime: RealtimeEventPublisher = NullRealtimeEventPublisher(),
 ) -> Event:
@@ -55,7 +58,10 @@ def update_event(
             **event.model_dump(exclude={"location"}),
             **update_values,
         }
-    ).schedule_deletion_after_event(deletion_delay_minutes)
+    ).schedule_deletion_after_event(deletion_delay_minutes, deletion_delay_when_no_date_in_minutes)
+
+    verify_event_dates_consistency(updated_event)
+
     persisted_event = events.update(updated_event)
     realtime.publish(
         RealtimeEvent(

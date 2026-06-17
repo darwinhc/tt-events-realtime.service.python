@@ -43,7 +43,7 @@ class Event(BaseModel):
         },
     )
 
-    title: str = Field(examples=["Realtime Systems Meetup"])
+    title: str = Field(examples=["Match World Cup: Colombia vs Uzbekistan"])
     organizer: str = Field(
         description="Visible name of the user creating the event.",
         examples=["darwin"],
@@ -132,7 +132,8 @@ class Event(BaseModel):
             )
         return self
 
-    def schedule_deletion_after_event(self, delay_minutes: int) -> "Event":
+    def schedule_deletion_after_event(
+            self, delay_minutes: int, deletion_delay_when_no_date_in_minutes: int) -> "Event":
         """Return the event with deletion scheduled after its end time."""
         self._validate_delay_minutes(delay_minutes)
         deletion_scheduled_at = None
@@ -141,6 +142,8 @@ class Event(BaseModel):
                 minutes=self.duration_in_minutes
             )
             deletion_scheduled_at = event_end + timedelta(minutes=delay_minutes)
+        elif deletion_delay_when_no_date_in_minutes is not None:
+            deletion_scheduled_at = datetime.now(timezone.utc) + timedelta(minutes=deletion_delay_when_no_date_in_minutes)
         return self.model_copy(
             update={"deletion_scheduled_at": deletion_scheduled_at}
         )

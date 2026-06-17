@@ -18,6 +18,7 @@ def create_event_and_resolve_location(
     events: EventsRepository,
     locations: LocationsRepository,
     *,
+    deletion_delay_when_no_date_in_minutes: int,
     deletion_delay_minutes: int,
     authentication: AuthenticationPort,
     realtime: RealtimeEventPublisher = NullRealtimeEventPublisher(),
@@ -46,6 +47,7 @@ def create_event_and_resolve_location(
     return create_event(
         event=resolved_event,
         events=events,
+        deletion_delay_when_no_date_in_minutes=deletion_delay_when_no_date_in_minutes,
         deletion_delay_minutes=deletion_delay_minutes,
         authentication=authentication,
         realtime=realtime,
