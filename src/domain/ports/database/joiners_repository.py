@@ -7,6 +7,7 @@ from typing import Optional
 from src.domain.entities import Joiner
 
 from .repository import Repository
+from ...dtos.joiner_info import JoinerInfo
 
 
 class JoinersRepository(Repository):
@@ -45,4 +46,9 @@ class JoinersRepository(Repository):
         left_at: datetime,
     ) -> Optional[Joiner]:
         """Mark and return the active joiner as having left."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_joiners_for_events(self, event_ids: set[int]) -> list[JoinerInfo]:
+        """Return all joiners for the given events."""
         raise NotImplementedError

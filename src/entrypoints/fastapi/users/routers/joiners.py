@@ -1,7 +1,10 @@
 """FastAPI routes for event joiner operations."""
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, Request
+from fastapi.params import Query
 
+from src.domain.dtos.joiner_info import JoinerInfo
 from src.domain.dtos import JoinEventRequest
 from src.domain.entities import Joiner
 from src.entrypoints.fastapi.users.dependencies import user_name_from_token
@@ -38,6 +41,37 @@ async def join_event(
     return request.app.state.application.join_event(
         user_name=user_name,
         event_id=body.event_id,
+    )
+
+
+@router.get(
+    "/joiners",
+    response_model=list[JoinerInfo],
+    summary="Get active joiners for multiple events",
+    description=(
+        "Returns active joiners for the provided event ids. "
+        "Use repeated query parameters, for example: "
+        "`/joiners?event_ids=1&event_ids=2&event_ids=3`."
+    ),
+    responses={
+        **COMMON_ERROR_RESPONSES,
+    }
+)
+async def get_joiners_for_events(
+    request: Request,
+    event_ids: Annotated[
+        list[int],
+        Query(
+            description="Event ids to retrieve active joiners for.",
+            min_length=1,
+        ),
+    ],
+) -> list[JoinerInfo]:
+    """Return active joiners for the requested events."""
+    unique_event_ids = set(event_ids)
+
+    return request.app.state.application.get_joiners_for_events(
+        event_ids=unique_event_ids,
     )
 
 

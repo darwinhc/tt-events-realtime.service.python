@@ -7,6 +7,7 @@ from typing import Optional
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 
+from src.domain.dtos.joiner_info import JoinerInfo
 from src.domain.entities import Joiner
 from src.domain.exceptions import EntityConflictError, EntityNotFoundError
 from src.domain.ports.database import JoinersRepository
@@ -115,6 +116,7 @@ class SQLAlchemyJoinersRepository(JoinersRepository):
             return session.scalar(statement) or 0
 
     def count_by_events(self, event_ids: set[int]) -> dict[int, int]:
+        """Return joiner counts indexed by event id."""
         if not event_ids:
             return {}
         statement = (
@@ -163,3 +165,24 @@ class SQLAlchemyJoinersRepository(JoinersRepository):
                 },
             )
             return left_joiner
+
+    def get_joiners_for_events(self, event_ids: set[int]) -> list[JoinerInfo]:
+        """Return all joiners for the given events."""
+        if not event_ids:
+            return []
+        statement = (
+            select(
+                JoinerModel.event_id,
+                JoinerModel.user_id,
+                UserModel.name,
+            ).join(UserModel, UserModel.id == JoinerModel.user_id)
+            .where(
+                JoinerModel.event_id.in_(event_ids),
+                JoinerModel.left_at.is_(None),
+            )
+        )
+        with self._database.sessions() as session:
+            return [
+                JoinerInfo(event_id=event_id, user_name=name, user_id=user_id)
+                for event_id, user_id, name in session.execute(statement).all()
+            ]
