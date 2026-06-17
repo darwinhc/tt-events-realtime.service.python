@@ -89,6 +89,7 @@ def test_creates_event_with_existing_location() -> None:
         events=InMemoryEventsRepository(),
         locations=InMemoryLocationsRepository(),
         deletion_delay_minutes=7,
+        deletion_delay_when_no_date_in_minutes=9,
         authentication=FakeAuthentication(),
     )
 
@@ -108,6 +109,7 @@ def test_creates_location_before_event() -> None:
         locations=InMemoryLocationsRepository(),
         deletion_delay_minutes=7,
         authentication=FakeAuthentication(),
+        deletion_delay_when_no_date_in_minutes=9
     )
 
     assert isinstance(result, Event)

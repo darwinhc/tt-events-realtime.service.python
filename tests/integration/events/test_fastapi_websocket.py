@@ -3,7 +3,9 @@
 import asyncio
 import logging
 import threading
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
+from time import sleep
 from types import SimpleNamespace
 from typing import Callable, Optional
 
@@ -437,13 +439,14 @@ def test_completed_join_does_not_emit_a_notification(
         headers={"Authorization": "Bearer organizer"},
         json={
             "title": "Completed realtime event",
-            "scheduled_at": "2020-01-01T10:00:00Z",
+            "scheduled_at": (datetime.now(timezone.utc) - timedelta(minutes=59.99)).isoformat(),
             "duration_in_minutes": 60,
             "location": {"address": "Past"},
         },
     ).json()
     future = create_event(client, "Future signal")
 
+    sleep(2)
     with client.websocket_connect("/ws/events") as websocket:
         rejected = join_event(client, completed["id"], "guest")
         accepted = join_event(client, future["id"], "other")

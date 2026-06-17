@@ -62,6 +62,9 @@ class InMemoryJoinersRepository(JoinersRepository):
     def __init__(self, counts: dict[int, int]) -> None:
         self.counts = counts
 
+    def get_joiners_for_events(self, event_ids: set[int]) -> list[Joiner]:
+        raise NotImplementedError
+
     def create(self, joiner: Joiner) -> Joiner:
         raise NotImplementedError
 

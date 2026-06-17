@@ -77,6 +77,7 @@ def test_organizer_updates_editable_fields_and_recalculates_deletion() -> None:
         locations=Locations(20),
         deletion_delay_minutes=7*60*24,
         authentication=FakeAuthentication(),
+        deletion_delay_when_no_date_in_minutes=7*60*24,
         realtime=publisher,
     )
 
@@ -102,11 +103,12 @@ def test_organizer_can_clear_schedule_and_deletion_date() -> None:
         events=Events(_event()),
         locations=Locations(),
         deletion_delay_minutes=7*60*24,
+        deletion_delay_when_no_date_in_minutes=2*60*24,
         authentication=FakeAuthentication(),
     )
 
     assert result.scheduled_at is None
-    assert result.deletion_scheduled_at is None
+    assert result.deletion_scheduled_at is not None
 
 
 def test_non_organizer_cannot_update_or_publish() -> None:
@@ -124,6 +126,7 @@ def test_non_organizer_cannot_update_or_publish() -> None:
             authentication=FakeAuthentication(
                 {"darwin": 1, "another-user": 2}
             ),
+            deletion_delay_when_no_date_in_minutes=7*60*24,
             realtime=publisher,
         )
 
@@ -140,7 +143,8 @@ def test_update_rejects_missing_canceled_event_and_unknown_location() -> None:
             Events(),
             Locations(),
             7,
-            FakeAuthentication(),
+            deletion_delay_when_no_date_in_minutes=7*60*24,
+            authentication=FakeAuthentication(),
         )
 
     canceled = _event().cancel(
@@ -155,7 +159,8 @@ def test_update_rejects_missing_canceled_event_and_unknown_location() -> None:
             Events(canceled),
             Locations(),
             7,
-            FakeAuthentication(),
+            deletion_delay_when_no_date_in_minutes=4,
+            authentication=FakeAuthentication(),
         )
 
     with pytest.raises(EntityNotFoundError, match="Location"):
@@ -166,6 +171,7 @@ def test_update_rejects_missing_canceled_event_and_unknown_location() -> None:
             Events(_event()),
             Locations(),
             7,
+            9,
             FakeAuthentication(),
         )
 

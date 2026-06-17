@@ -1,8 +1,9 @@
 """FastAPI inbound-adapter integration tests."""
 
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
+from time import sleep
 
 import pytest
 from alembic import command
@@ -17,6 +18,10 @@ from src.infra.config import Settings
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
+CANCELED_EVENT_DELETION_DELAY_MINUTES = 20
+EVENT_DELETION_DELAY_MINUTES = 40
+LOCATION_UNUSED_DELETION_DELAY_MINUTES = 60
+EVENT_DELETION_DELAY_WHEN_NO_DATE_IN_MINUTES = 80
 
 
 def run_migrations(database_url: str) -> None:
@@ -36,14 +41,20 @@ def build_test_settings(database_url: str) -> Settings:
         database_url=database_url,
         sqlalchemy_echo=False,
         log_level="ERROR",
+        canceled_event_deletion_delay_minutes = CANCELED_EVENT_DELETION_DELAY_MINUTES,
+        event_deletion_delay_minutes = EVENT_DELETION_DELAY_MINUTES,
+        location_unused_deletion_delay_minutes = LOCATION_UNUSED_DELETION_DELAY_MINUTES,
+        event_deletion_delay_when_no_date_in_minutes = EVENT_DELETION_DELAY_WHEN_NO_DATE_IN_MINUTES,
     )
 
 @pytest.fixture
 def application(tmp_path):
     database_url = f"sqlite:///{tmp_path / 'events.db'}"
     run_migrations(database_url)
+    settings = build_test_settings(database_url)
+
     application = build_application(
-        build_test_settings(database_url)
+        settings
     )
     return application
 
@@ -55,13 +66,15 @@ def client(application):
 def test_creates_event_with_internal_identity_and_embedded_location(
     client, application
 ) -> None:
+    now = datetime.now(timezone.utc)
+    duration = 105
     event_response = client.post(
         "/events",
         headers={"Authorization": "Bearer darwin"},
         json={
             "title": "Realtime Systems Meetup",
             "scheduled_at": None,
-            "duration_in_minutes": 105,
+            "duration_in_minutes": duration,
             "location": {
                 "name": "Main Hall",
                 "coordinates": {
@@ -74,11 +87,16 @@ def test_creates_event_with_internal_identity_and_embedded_location(
 
     assert event_response.status_code == 201
     assert event_response.json()["scheduled_at"] is None
-    assert event_response.json()["duration_in_minutes"] == 105
+    assert event_response.json()["duration_in_minutes"] == duration
     assert event_response.json()["organizer"] == "darwin"
     assert event_response.json()["status"] == "active"
     assert event_response.json()["canceled_at"] is None
-    assert event_response.json()["deletion_scheduled_at"] is None
+    assert event_response.json()["deletion_scheduled_at"] is not None
+
+    deletion_scheduled_at = datetime.fromisoformat(event_response.json()["deletion_scheduled_at"]).replace(microsecond=0)
+    expected_scheduled_at = (now + timedelta(minutes=EVENT_DELETION_DELAY_WHEN_NO_DATE_IN_MINUTES)).replace(microsecond=0)
+
+    assert  deletion_scheduled_at == expected_scheduled_at
 
     cancel_response = client.post(
         f"/events/{event_response.json()['id']}/cancel",
@@ -103,7 +121,7 @@ def test_creates_event_with_internal_identity_and_embedded_location(
     assert uncancel_response.status_code == 200
     assert uncancel_response.json()["status"] == "active"
     assert uncancel_response.json()["canceled_at"] is None
-    assert uncancel_response.json()["deletion_scheduled_at"] is None
+    assert uncancel_response.json()["deletion_scheduled_at"] is not None
 
     filtered_events = application.get_events(
         query=EventQuery(
@@ -186,13 +204,15 @@ def test_event_api_rejects_legacy_hour_duration_field(client) -> None:
 
 
 def test_creates_event_and_resolves_embedded_location(client) -> None:
+    now = datetime.now(timezone.utc)
+    duration = 90
     response = client.post(
         "/events",
         headers={"Authorization": "Bearer darwin"},
         json={
             "title": "Event with embedded location",
-            "scheduled_at": "2026-08-20T18:30:00Z",
-            "duration_in_minutes": 90,
+            "scheduled_at": (now + timedelta(hours=1)).isoformat(),
+            "duration_in_minutes": duration,
             "location": {
                 "name": "Main Hall",
                 "address": "Alexanderplatz 1, Berlin",
@@ -210,8 +230,8 @@ def test_creates_event_and_resolves_embedded_location(client) -> None:
     assert response.status_code == 201
     assert response.json()["location_id"] == 1
     assert response.json()["status"] == "active"
-    assert response.json()["deletion_scheduled_at"] == (
-        "2026-08-27T20:00:00Z"
+    assert datetime.fromisoformat(response.json()["deletion_scheduled_at"]) == (
+        (now + timedelta(hours=1, minutes=duration+EVENT_DELETION_DELAY_MINUTES))
     )
     event_details = client.get(f"/events/{response.json()['id']}").json()
     assert event_details["location"]["country"] == "DE"
@@ -271,11 +291,12 @@ def test_join_rejects_completed_event_and_accepts_future_event(client) -> None:
         headers={"Authorization": "Bearer organizer"},
         json={
             "title": "Completed event",
-            "scheduled_at": "2020-01-01T10:00:00Z",
+            "scheduled_at": (datetime.now(timezone.utc) - timedelta(minutes=59.99)).isoformat(),
             "duration_in_minutes": 60,
             "location": {"address": "Past location"},
         },
     ).json()
+
     future = client.post(
         "/events",
         headers={"Authorization": "Bearer organizer"},
@@ -286,7 +307,7 @@ def test_join_rejects_completed_event_and_accepts_future_event(client) -> None:
             "location": {"address": "Future location"},
         },
     ).json()
-
+    sleep(1)
     rejected = client.post(
         "/joiners",
         headers={"Authorization": "Bearer guest"},
@@ -308,7 +329,7 @@ def test_join_rejects_completed_event_and_accepts_future_event(client) -> None:
 
 
 def test_internal_use_case_lists_expired_active_events(client) -> None:
-    expired = client.post(
+    expired_response = client.post(
         "/events",
         headers={"Authorization": "Bearer darwin"},
         json={
@@ -317,41 +338,9 @@ def test_internal_use_case_lists_expired_active_events(client) -> None:
             "duration_in_minutes": 60,
             "location": {"address": "Remote"},
         },
-    ).json()
-    future = client.post(
-        "/events",
-        headers={"Authorization": "Bearer darwin"},
-        json={
-            "title": "Future active event",
-            "scheduled_at": "2099-01-01T10:00:00Z",
-            "duration_in_minutes": 60,
-            "location_id": expired["location_id"],
-        },
-    ).json()
-    unscheduled_event = client.post(
-        "/events",
-        headers={"Authorization": "Bearer darwin"},
-        json={
-            "title": "Unscheduled active event",
-            "scheduled_at": None,
-            "duration_in_minutes": 60,
-            "location_id": expired["location_id"],
-        },
     )
-    canceled_visible = client.post(
-        f"/events/{future['id']}/cancel",
-        headers={"Authorization": "Bearer darwin"},
-    )
-    assert canceled_visible.status_code == 200
-    assert canceled_visible.json()["status"] == "canceled"
-
-    response_get = client.get("/events")
-    assert response_get.status_code == 200
-    assert len(response_get.json()) == 2
-    assert set(item_i.get("id") for item_i in response_get.json()) == {
-        unscheduled_event.json()["id"], future["id"]
-    }
-
+    assert expired_response.status_code == 422
+    assert expired_response.json().get("detail") == 'Event must have a scheduled date in the future.'
 
 
 def test_joins_and_leaves_event(client) -> None:

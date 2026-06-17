@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 
 import pytest
 
+from src.domain.dtos.joiner_info import JoinerInfo
 from src.domain.dtos import EventFilters
 from src.domain.entities import Event, Joiner
 from src.domain.exceptions import DomainValidationError, EntityNotFoundError
@@ -40,6 +41,9 @@ class InMemoryEventsRepository(EventsRepository):
 
 
 class InMemoryJoinersRepository(JoinersRepository):
+    def get_joiners_for_events(self, event_ids: set[int]) -> list[JoinerInfo]:
+        return [item for item in self.joiners if item.event_id in event_ids]
+
     def __init__(self) -> None:
         self.joiners = []
 

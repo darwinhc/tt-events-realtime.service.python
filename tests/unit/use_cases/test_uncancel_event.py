@@ -62,7 +62,7 @@ def _canceled_event() -> Event:
         scheduled_at=datetime(2026, 8, 20, 18, tzinfo=timezone.utc),
         duration_in_minutes=60,
         location_id=1,
-    ).schedule_deletion_after_event(7).cancel(
+    ).schedule_deletion_after_event(7, 20).cancel(
         datetime(2026, 8, 10, 12, tzinfo=timezone.utc),
         deletion_delay_minutes=1,
     )
@@ -79,6 +79,7 @@ def test_organizer_can_uncancel_event() -> None:
         deletion_delay_minutes=7*60*24,
         authentication=FakeAuthentication(),
         realtime=publisher,
+        deletion_delay_when_no_date_in_minutes=4
     )
 
     assert result.status.value == "active"
@@ -106,6 +107,7 @@ def test_non_organizer_cannot_uncancel_event() -> None:
             authentication=FakeAuthentication(
                 {"darwin": 1, "another-user": 2}
             ),
+            deletion_delay_when_no_date_in_minutes=4
         )
 
     assert events.update_calls == 0
@@ -119,9 +121,11 @@ def test_uncancel_rejects_missing_or_active_event() -> None:
             events=Events(None),
             deletion_delay_minutes=7*60*24,
             authentication=FakeAuthentication(),
+            deletion_delay_when_no_date_in_minutes=4
         )
 
-    active = _canceled_event().uncancel(deletion_delay_minutes=7)
+    active = _canceled_event().uncancel(deletion_delay_minutes=7,
+                                        deletion_delay_when_no_date_in_minutes=4)
     with pytest.raises(DomainValidationError, match="not canceled"):
         uncancel_event(
             event_id=8,
@@ -129,4 +133,5 @@ def test_uncancel_rejects_missing_or_active_event() -> None:
             events=Events(active),
             deletion_delay_minutes=7*60*24,
             authentication=FakeAuthentication(),
+            deletion_delay_when_no_date_in_minutes=2
         )

@@ -135,7 +135,7 @@ def test_event_schedules_deletion_after_end_time() -> None:
         location_id=1,
     )
 
-    event_with_deletion = event.schedule_deletion_after_event(delay_minutes=7*24*60)
+    event_with_deletion = event.schedule_deletion_after_event(delay_minutes=7*24*60, deletion_delay_when_no_date_in_minutes=9*24*60)
 
     assert event_with_deletion.status is EventStatus.ACTIVE
     assert event_with_deletion.deletion_scheduled_at == datetime(
@@ -156,7 +156,8 @@ def test_unscheduled_event_has_no_deletion_date() -> None:
         location_id=1,
     )
 
-    assert event.schedule_deletion_after_event(7).deletion_scheduled_at is None
+    assert event.schedule_deletion_after_event(
+        7, 9).deletion_scheduled_at is not None
 
 
 def test_canceling_future_event_uses_earlier_cancellation_deletion_date() -> None:
@@ -166,7 +167,7 @@ def test_canceling_future_event_uses_earlier_cancellation_deletion_date() -> Non
         scheduled_at=datetime(2026, 8, 20, 18, 30, tzinfo=timezone.utc),
         duration_in_minutes=60,
         location_id=1,
-    ).schedule_deletion_after_event(7*24*60)
+    ).schedule_deletion_after_event(7*24*60, 7*24*60)
     canceled_at = datetime(2026, 8, 10, 12, 0, tzinfo=timezone.utc)
 
     canceled_event = event.cancel(canceled_at, deletion_delay_minutes=1*24*60)
@@ -190,7 +191,7 @@ def test_canceling_past_event_keeps_earlier_event_deletion_date() -> None:
         scheduled_at=datetime(2026, 8, 1, 10, 0, tzinfo=timezone.utc),
         duration_in_minutes=60,
         location_id=1,
-    ).schedule_deletion_after_event(7*24*60)
+    ).schedule_deletion_after_event(7*24*60, 7*24*60)
     canceled_at = datetime(2026, 8, 10, 12, 0, tzinfo=timezone.utc)
 
     canceled_event = event.cancel(canceled_at, deletion_delay_minutes=1*24*60)
@@ -273,7 +274,7 @@ def test_event_rejects_canceling_twice_naive_clock_and_invalid_delays() -> None:
         event.cancel(datetime(2026, 8, 20), deletion_delay_minutes=1)
     for invalid_delay in (-1, 1.5, True):
         with pytest.raises(DomainValidationError):
-            event.schedule_deletion_after_event(invalid_delay)
+            event.schedule_deletion_after_event(invalid_delay, 20)
 
     canceled = event.cancel(datetime.now(timezone.utc), deletion_delay_minutes=1)
     with pytest.raises(DomainValidationError, match="already canceled"):
