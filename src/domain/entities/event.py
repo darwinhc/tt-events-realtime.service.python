@@ -143,7 +143,8 @@ class Event(BaseModel):
             )
             deletion_scheduled_at = event_end + timedelta(minutes=delay_minutes)
         elif deletion_delay_when_no_date_in_minutes is not None:
-            deletion_scheduled_at = datetime.now(timezone.utc) + timedelta(minutes=deletion_delay_when_no_date_in_minutes)
+            deletion_scheduled_at = (datetime.now(timezone.utc) +
+                                     timedelta(minutes=deletion_delay_when_no_date_in_minutes))
         return self.model_copy(
             update={"deletion_scheduled_at": deletion_scheduled_at}
         )

@@ -114,7 +114,8 @@ def build_application(
             create_event,
             events=events,
             deletion_delay_minutes=current_settings.event_deletion_delay_minutes,
-            deletion_delay_when_no_date_in_minutes=current_settings.event_deletion_delay_when_no_date_in_minutes,
+            deletion_delay_when_no_date_in_minutes=(
+                current_settings.event_deletion_delay_when_no_date_in_minutes),
             authentication=authentication,
             realtime=realtime_publisher,
         ),
@@ -123,7 +124,8 @@ def build_application(
             events=events,
             locations=locations,
             deletion_delay_minutes=current_settings.event_deletion_delay_minutes,
-            deletion_delay_when_no_date_in_minutes=current_settings.event_deletion_delay_when_no_date_in_minutes,
+            deletion_delay_when_no_date_in_minutes=(
+                current_settings.event_deletion_delay_when_no_date_in_minutes),
             authentication=authentication,
             realtime=realtime_publisher,
         ),
@@ -163,7 +165,8 @@ def build_application(
             events=events,
             authentication=authentication,
             deletion_delay_minutes=current_settings.event_deletion_delay_minutes,
-            deletion_delay_when_no_date_in_minutes=current_settings.event_deletion_delay_when_no_date_in_minutes,
+            deletion_delay_when_no_date_in_minutes=(
+                current_settings.event_deletion_delay_when_no_date_in_minutes),
             realtime=realtime_publisher,
         ),
         update_event=partial(
@@ -171,7 +174,8 @@ def build_application(
             events=events,
             locations=locations,
             deletion_delay_minutes=current_settings.event_deletion_delay_minutes,
-            deletion_delay_when_no_date_in_minutes=current_settings.event_deletion_delay_when_no_date_in_minutes,
+            deletion_delay_when_no_date_in_minutes=(
+                current_settings.event_deletion_delay_when_no_date_in_minutes),
             authentication=authentication,
             realtime=realtime_publisher,
         ),
