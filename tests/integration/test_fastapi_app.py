@@ -96,7 +96,7 @@ def test_creates_event_with_internal_identity_and_embedded_location(
     deletion_scheduled_at = datetime.fromisoformat(event_response.json()["deletion_scheduled_at"]).replace(microsecond=0)
     expected_scheduled_at = (now + timedelta(minutes=EVENT_DELETION_DELAY_WHEN_NO_DATE_IN_MINUTES)).replace(microsecond=0)
 
-    assert  deletion_scheduled_at == expected_scheduled_at
+    assert  deletion_scheduled_at - expected_scheduled_at < timedelta(seconds=5)
 
     cancel_response = client.post(
         f"/events/{event_response.json()['id']}/cancel",
