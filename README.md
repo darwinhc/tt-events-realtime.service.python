@@ -9,6 +9,8 @@ The service manages events, locations, participants, and realtime notifications.
 - Swagger UI: <https://tt-events-realtime-service-python.onrender.com/docs>
 - Health check: <https://tt-events-realtime-service-python.onrender.com/health>
 - WebSocket: `wss://tt-events-realtime-service-python.onrender.com/ws/events`
+- AsyncAPI contract: [`docs/asyncapi.yaml`](./docs/asyncapi.yaml)
+- AsyncAPI WebSocket guide: [`docs/ASYNCAPI_WEBSOCKET.md`](./docs/ASYNCAPI_WEBSOCKET.md)
 
 ## What this service does
 
@@ -116,7 +118,8 @@ Main variables:
 | `EVENTS_DATABASE_URL` | SQLAlchemy database URL. Use `sqlite:///data/events.db` locally or `postgresql+psycopg://...` for PostgreSQL. |
 | `SQLALCHEMY_ECHO` | Enables SQL logging when set to `true`. |
 | `CORS_ALLOWED_ORIGINS` | Comma-separated allowed browser origins. |
-| `EVENT_DELETION_DELAY_MINUTES` | Delay before completed events are eligible for cleanup. |
+| `EVENT_DELETION_DELAY_MINUTES` | Delay in minutes added after a scheduled event's end time before cleanup. |
+| `EVENT_DELETION_DELAY_WHEN_NO_DATE_IN_MINUTES` | Delay in minutes used to schedule cleanup for events without `scheduled_at`. |
 | `CANCELED_EVENT_DELETION_DELAY_MINUTES` | Delay before canceled events are eligible for cleanup. |
 | `LOCATION_UNUSED_DELETION_DELAY_MINUTES` | Delay before unused locations are eligible for cleanup. |
 | `LOG_LEVEL` | `DEBUG`, `INFO`, `WARNING`, `ERROR`, or `CRITICAL`. |
@@ -190,9 +193,11 @@ or in production:
 wss://tt-events-realtime-service-python.onrender.com/ws/events
 ```
 
-The WebSocket emits notifications after successful mutations such as event creation, updates, cancellation, location updates, joins, and leaves.
+The current realtime route is a single global WebSocket channel: `/ws/events`. It is not event-specific, so clients should not connect to `/ws/events/{event_id}`. A client connects once and receives notifications for all persisted event, location, and joiner changes.
 
-For client behavior and message examples, see [`docs/WEBSOCKET_CLIENT_GUIDE.md`](./docs/WEBSOCKET_CLIENT_GUIDE.md).
+The WebSocket emits notifications after successful mutations such as event creation, updates, cancellation, restoration, location updates, joins, and leaves. Clients can optionally send `{"action":"ping"}` and the server responds with `{"type":"pong"}`.
+
+For client behavior and message examples, see [`docs/WEBSOCKET_CLIENT_GUIDE.md`](./docs/WEBSOCKET_CLIENT_GUIDE.md). The machine-readable AsyncAPI 3.1.0 contract and its companion guide are available in [`docs/asyncapi.yaml`](./docs/asyncapi.yaml) and [`docs/ASYNCAPI_WEBSOCKET.md`](./docs/ASYNCAPI_WEBSOCKET.md).
 
 ## Quality checks
 
@@ -206,7 +211,7 @@ Current validation of this version:
 
 ```text
 109 passed
-Total coverage: 86.38%
+Total coverage: 85.94%
 ```
 
 ## Documentation
@@ -215,3 +220,4 @@ The compact technical documentation is in:
 
 - [`docs/TECHNICAL_DOCUMENTATION.md`](./docs/TECHNICAL_DOCUMENTATION.md)
 - [`docs/WEBSOCKET_CLIENT_GUIDE.md`](./docs/WEBSOCKET_CLIENT_GUIDE.md)
+- [`docs/asyncapi.yaml`](./docs/asyncapi.yaml)

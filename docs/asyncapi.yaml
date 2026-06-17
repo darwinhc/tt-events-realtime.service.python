@@ -1,0 +1,824 @@
+asyncapi: 3.1.0
+id: urn:events-service:realtime-websocket-api
+info:
+  title: Events Service Realtime WebSocket API
+  version: 1.0.0
+  description: 'AsyncAPI contract for the Events Service realtime WebSocket endpoint.
+
+
+    The WebSocket is a live notification channel for successful domain
+
+    mutations performed through the HTTP API. It does not replace the HTTP API
+
+    as the source of truth. Clients should load state through HTTP first, apply
+
+    incoming WebSocket notifications for responsive UI updates, and reconcile
+
+    with HTTP after reconnecting.
+
+
+    Delivery is best-effort and process-local in the current deployment model.
+
+    The deployed service is expected to run as one instance with one worker.
+
+    Multiple instances or workers require a shared broker before fan-out.
+
+    '
+  contact:
+    name: Events Service Maintainers
+    url: https://tt-events-realtime-service-python.onrender.com/docs
+    email: support@example.com
+  license:
+    name: Private technical exercise
+  tags:
+  - name: realtime
+    description: Realtime event notifications.
+  - name: websocket
+    description: WebSocket transport contract.
+defaultContentType: application/json
+servers:
+  production:
+    host: tt-events-realtime-service-python.onrender.com
+    pathname: /ws/events
+    protocol: wss
+    description: Hosted Render service.
+    tags:
+    - name: env:production
+  local:
+    host: localhost:8000
+    pathname: /ws/events
+    protocol: ws
+    description: Local development server started with uvicorn.
+    tags:
+    - name: env:local
+channels:
+  eventsRealtime:
+    address: /ws/events
+    title: Events realtime channel
+    summary: Global channel for event, location, joiner and control messages.
+    description: 'Global realtime channel for all event, location, and joiner changes.
+
+
+      Full URLs:
+
+
+      - Local: `ws://localhost:8000/ws/events`
+
+      - Production: `wss://tt-events-realtime-service-python.onrender.com/ws/events`
+
+
+      The endpoint accepts an optional `X-Transaction-ID` header during the
+
+      WebSocket handshake. The value is used only for request correlation in
+
+      server logs; it is not part of the message payload.
+
+      '
+    servers:
+    - $ref: '#/servers/production'
+    - $ref: '#/servers/local'
+    messages:
+      ping:
+        $ref: '#/components/messages/ping'
+      pong:
+        $ref: '#/components/messages/pong'
+      eventCreated:
+        $ref: '#/components/messages/eventCreated'
+      eventUpdated:
+        $ref: '#/components/messages/eventUpdated'
+      eventCanceled:
+        $ref: '#/components/messages/eventCanceled'
+      eventUncanceled:
+        $ref: '#/components/messages/eventUncanceled'
+      locationUpdated:
+        $ref: '#/components/messages/locationUpdated'
+      joinerJoined:
+        $ref: '#/components/messages/joinerJoined'
+      joinerLeft:
+        $ref: '#/components/messages/joinerLeft'
+    tags:
+    - name: realtime
+    - name: websocket
+operations:
+  sendRealtimeNotifications:
+    action: send
+    channel:
+      $ref: '#/channels/eventsRealtime'
+    summary: Send realtime notifications to connected clients.
+    description: The service sends one message after a successful domain mutation. Rejected HTTP operations do not emit WebSocket messages.
+    messages:
+    - $ref: '#/channels/eventsRealtime/messages/eventCreated'
+    - $ref: '#/channels/eventsRealtime/messages/eventUpdated'
+    - $ref: '#/channels/eventsRealtime/messages/eventCanceled'
+    - $ref: '#/channels/eventsRealtime/messages/eventUncanceled'
+    - $ref: '#/channels/eventsRealtime/messages/locationUpdated'
+    - $ref: '#/channels/eventsRealtime/messages/joinerJoined'
+    - $ref: '#/channels/eventsRealtime/messages/joinerLeft'
+    - $ref: '#/channels/eventsRealtime/messages/pong'
+    tags:
+    - name: realtime
+    - name: server-to-client
+  receiveClientControlMessages:
+    action: receive
+    channel:
+      $ref: '#/channels/eventsRealtime'
+    summary: Receive client control messages.
+    description: The current service receives only the ping control message. Domain mutations are performed through the HTTP API, not through WebSocket messages.
+    messages:
+    - $ref: '#/channels/eventsRealtime/messages/ping'
+    tags:
+    - name: websocket
+    - name: client-to-server
+components:
+  messages:
+    ping:
+      name: ping
+      title: Client ping
+      summary: Client asks the server to confirm the socket is usable.
+      examples:
+      - name: ping
+        summary: Keepalive / connection check.
+        payload:
+          action: ping
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/PingMessage'
+      tags:
+      - name: realtime
+      - name: websocket
+      x-messageId: ping
+    pong:
+      name: pong
+      title: Server pong
+      summary: Server response to a client ping.
+      examples:
+      - name: pong
+        summary: Response emitted only after a ping message.
+        payload:
+          type: pong
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/PongMessage'
+      tags:
+      - name: realtime
+      - name: websocket
+      x-messageId: pong
+    eventCreated:
+      name: event.created
+      title: Event created
+      summary: A new event was created successfully.
+      examples:
+      - name: scheduledEventCreated
+        summary: Scheduled event created with an embedded location resolved to location_id.
+        payload:
+          id: 6ecf9ef7-2217-4a5f-971e-31fa77a4fbe2
+          type: event.created
+          event_id: 1
+          location_id: null
+          occurred_at: '2026-06-17T09:15:30.000000Z'
+          payload:
+            id: 1
+            title: Realtime Systems Meetup
+            organizer: darwin
+            organizer_id: 1
+            scheduled_at: '2026-08-20T18:30:00Z'
+            duration_in_minutes: 90
+            location_id: 1
+            status: active
+            canceled_at: null
+            deletion_scheduled_at: '2026-08-20T22:00:00Z'
+      - name: dateToBeDefinedEventCreated
+        summary: Event created without a scheduled date; deletion date is still assigned by the domain.
+        payload:
+          id: a4bc36c1-3d48-4fb3-bb43-07092a9d61de
+          type: event.created
+          event_id: 2
+          location_id: null
+          occurred_at: '2026-06-17T09:20:10.000000Z'
+          payload:
+            id: 2
+            title: Date to be confirmed meetup
+            organizer: aleja
+            organizer_id: 2
+            scheduled_at: null
+            duration_in_minutes: 60
+            location_id: 3
+            status: active
+            canceled_at: null
+            deletion_scheduled_at: '2026-06-24T09:20:10.000000Z'
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/EventCreatedNotification'
+      tags:
+      - name: realtime
+      - name: websocket
+      x-messageId: eventCreated
+    eventUpdated:
+      name: event.updated
+      title: Event updated
+      summary: An existing active event was updated by its organizer.
+      examples:
+      - name: titleAndScheduleUpdated
+        summary: Organizer changed title and schedule.
+        payload:
+          id: b3d0383a-19e4-4827-8f0d-b615a01724f5
+          type: event.updated
+          event_id: 1
+          location_id: null
+          occurred_at: '2026-06-17T10:00:00.000000Z'
+          payload:
+            id: 1
+            title: Updated Realtime Systems Meetup
+            organizer: darwin
+            organizer_id: 1
+            scheduled_at: '2026-09-01T18:00:00Z'
+            duration_in_minutes: 90
+            location_id: 1
+            status: active
+            canceled_at: null
+            deletion_scheduled_at: '2026-09-01T21:30:00Z'
+      - name: eventMovedToAnotherLocation
+        summary: Organizer changed location_id after selecting an existing location.
+        payload:
+          id: 90a0f490-d598-4cb2-bcbd-6182c6f24a2a
+          type: event.updated
+          event_id: 1
+          location_id: null
+          occurred_at: '2026-06-17T10:05:00.000000Z'
+          payload:
+            id: 1
+            title: Updated Realtime Systems Meetup
+            organizer: darwin
+            organizer_id: 1
+            scheduled_at: '2026-09-01T18:00:00Z'
+            duration_in_minutes: 90
+            location_id: 5
+            status: active
+            canceled_at: null
+            deletion_scheduled_at: '2026-09-01T21:30:00Z'
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/EventUpdatedNotification'
+      tags:
+      - name: realtime
+      - name: websocket
+      x-messageId: eventUpdated
+    eventCanceled:
+      name: event.canceled
+      title: Event canceled
+      summary: An active event was canceled by its organizer.
+      examples:
+      - name: futureEventCanceled
+        summary: Cancellation sets status, canceled_at, and a deletion deadline.
+        payload:
+          id: 1e0f1d6d-3684-4704-a82f-e78b58002276
+          type: event.canceled
+          event_id: 1
+          location_id: null
+          occurred_at: '2026-06-17T11:10:00.000000Z'
+          payload:
+            id: 1
+            title: Updated Realtime Systems Meetup
+            organizer: darwin
+            organizer_id: 1
+            scheduled_at: '2026-09-01T18:00:00Z'
+            duration_in_minutes: 90
+            location_id: 5
+            status: canceled
+            canceled_at: '2026-06-17T11:10:00.000000Z'
+            deletion_scheduled_at: '2026-06-17T13:10:00.000000Z'
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/EventCanceledNotification'
+      tags:
+      - name: realtime
+      - name: websocket
+      x-messageId: eventCanceled
+    eventUncanceled:
+      name: event.uncanceled
+      title: Event restored
+      summary: A canceled event was restored by its organizer.
+      examples:
+      - name: canceledEventRestored
+        summary: Restored event becomes active again and gets its deletion deadline recalculated.
+        payload:
+          id: 930db505-f1a3-45ad-b499-0b4b8d52fbfb
+          type: event.uncanceled
+          event_id: 1
+          location_id: null
+          occurred_at: '2026-06-17T11:20:00.000000Z'
+          payload:
+            id: 1
+            title: Updated Realtime Systems Meetup
+            organizer: darwin
+            organizer_id: 1
+            scheduled_at: '2026-09-01T18:00:00Z'
+            duration_in_minutes: 90
+            location_id: 5
+            status: active
+            canceled_at: null
+            deletion_scheduled_at: '2026-09-01T21:30:00Z'
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/EventUncanceledNotification'
+      tags:
+      - name: realtime
+      - name: websocket
+      x-messageId: eventUncanceled
+    locationUpdated:
+      name: location.updated
+      title: Location updated
+      summary: A location used by one or more events was updated.
+      examples:
+      - name: locationNameUpdated
+        summary: Location name changed; event_id is null because this message is location-scoped.
+        payload:
+          id: 9c48d796-c070-4ec4-90a0-e57e8f797ff9
+          type: location.updated
+          event_id: null
+          location_id: 5
+          occurred_at: '2026-06-17T12:00:00.000000Z'
+          payload:
+            id: 5
+            name: Updated location in realtime
+            address: Alexanderplatz 1, Berlin
+            country: DE
+            city: berlin
+            postal_code: '10178'
+            coordinates:
+              latitude: 52.5219
+              longitude: 13.4132
+            created_at: '2026-06-17T09:15:30.000000Z'
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/LocationUpdatedNotification'
+      tags:
+      - name: realtime
+      - name: websocket
+      x-messageId: locationUpdated
+    joinerJoined:
+      name: joiner.joined
+      title: Joiner joined
+      summary: A user joined an active event.
+      examples:
+      - name: firstJoinerJoined
+        summary: First active joiner for an event.
+        payload:
+          id: 0949b623-ecf8-4061-9b43-5fa1e1f08c7f
+          type: joiner.joined
+          event_id: 1
+          location_id: null
+          occurred_at: '2026-06-17T12:15:00.000000Z'
+          payload:
+            joiner:
+              id: 1
+              user_id: 2
+              user_name: guest
+              event_id: 1
+              joined_at: '2026-06-17T12:15:00.000000Z'
+              left_at: null
+            joiners_count: 1
+      - name: secondJoinerJoined
+        summary: Joiner count reflects active participants after the operation.
+        payload:
+          id: 1896cc71-1430-4b47-a9b9-e21b0f7751ef
+          type: joiner.joined
+          event_id: 1
+          location_id: null
+          occurred_at: '2026-06-17T12:20:00.000000Z'
+          payload:
+            joiner:
+              id: 2
+              user_id: 3
+              user_name: another-user
+              event_id: 1
+              joined_at: '2026-06-17T12:20:00.000000Z'
+              left_at: null
+            joiners_count: 2
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/JoinerJoinedNotification'
+      tags:
+      - name: realtime
+      - name: websocket
+      x-messageId: joinerJoined
+    joinerLeft:
+      name: joiner.left
+      title: Joiner left
+      summary: A user left an event.
+      examples:
+      - name: joinerLeft
+        summary: left_at is set and joiners_count decreases.
+        payload:
+          id: d5b2d69b-e5bd-49cb-86b4-d28aef02ec10
+          type: joiner.left
+          event_id: 1
+          location_id: null
+          occurred_at: '2026-06-17T12:25:00.000000Z'
+          payload:
+            joiner:
+              id: 1
+              user_id: 2
+              user_name: guest
+              event_id: 1
+              joined_at: '2026-06-17T12:15:00.000000Z'
+              left_at: '2026-06-17T12:25:00.000000Z'
+            joiners_count: 1
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/JoinerLeftNotification'
+      tags:
+      - name: realtime
+      - name: websocket
+      x-messageId: joinerLeft
+  schemas:
+    PingMessage:
+      type: object
+      additionalProperties: false
+      required:
+      - action
+      properties:
+        action:
+          type: string
+          enum:
+          - ping
+    PongMessage:
+      type: object
+      additionalProperties: false
+      required:
+      - type
+      properties:
+        type:
+          type: string
+          enum:
+          - pong
+    RealtimeEnvelope:
+      type: object
+      additionalProperties: false
+      required:
+      - id
+      - type
+      - event_id
+      - location_id
+      - payload
+      - occurred_at
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique notification id. Use it for client-side deduplication.
+        type:
+          type: string
+          description: Domain notification type.
+        event_id:
+          oneOf:
+          - type: integer
+            minimum: 1
+            description: Related event id when the notification is event-scoped.
+          - type: 'null'
+        location_id:
+          oneOf:
+          - type: integer
+            minimum: 1
+            description: Related location id when the notification is location-scoped.
+          - type: 'null'
+        payload:
+          type: object
+          description: Type-specific domain payload.
+        occurred_at:
+          type: string
+          format: date-time
+          description: UTC timestamp generated by the service.
+    EventCreatedNotification:
+      allOf:
+      - $ref: '#/components/schemas/RealtimeEnvelope'
+      - type: object
+        required:
+        - type
+        - event_id
+        - location_id
+        - payload
+        properties:
+          type:
+            type: string
+            enum:
+            - event.created
+          event_id:
+            type: integer
+            minimum: 1
+          location_id:
+            oneOf:
+            - type: integer
+              minimum: 1
+            - type: 'null'
+          payload:
+            $ref: '#/components/schemas/Event'
+    EventUpdatedNotification:
+      allOf:
+      - $ref: '#/components/schemas/RealtimeEnvelope'
+      - type: object
+        required:
+        - type
+        - event_id
+        - location_id
+        - payload
+        properties:
+          type:
+            type: string
+            enum:
+            - event.updated
+          event_id:
+            type: integer
+            minimum: 1
+          location_id:
+            oneOf:
+            - type: integer
+              minimum: 1
+            - type: 'null'
+          payload:
+            $ref: '#/components/schemas/Event'
+    EventCanceledNotification:
+      allOf:
+      - $ref: '#/components/schemas/RealtimeEnvelope'
+      - type: object
+        required:
+        - type
+        - event_id
+        - location_id
+        - payload
+        properties:
+          type:
+            type: string
+            enum:
+            - event.canceled
+          event_id:
+            type: integer
+            minimum: 1
+          location_id:
+            oneOf:
+            - type: integer
+              minimum: 1
+            - type: 'null'
+          payload:
+            $ref: '#/components/schemas/Event'
+    EventUncanceledNotification:
+      allOf:
+      - $ref: '#/components/schemas/RealtimeEnvelope'
+      - type: object
+        required:
+        - type
+        - event_id
+        - location_id
+        - payload
+        properties:
+          type:
+            type: string
+            enum:
+            - event.uncanceled
+          event_id:
+            type: integer
+            minimum: 1
+          location_id:
+            oneOf:
+            - type: integer
+              minimum: 1
+            - type: 'null'
+          payload:
+            $ref: '#/components/schemas/Event'
+    LocationUpdatedNotification:
+      allOf:
+      - $ref: '#/components/schemas/RealtimeEnvelope'
+      - type: object
+        required:
+        - type
+        - event_id
+        - location_id
+        - payload
+        properties:
+          type:
+            type: string
+            enum:
+            - location.updated
+          event_id:
+            oneOf:
+            - type: integer
+              minimum: 1
+            - type: 'null'
+          location_id:
+            type: integer
+            minimum: 1
+          payload:
+            $ref: '#/components/schemas/Location'
+    JoinerJoinedNotification:
+      allOf:
+      - $ref: '#/components/schemas/RealtimeEnvelope'
+      - type: object
+        required:
+        - type
+        - event_id
+        - location_id
+        - payload
+        properties:
+          type:
+            type: string
+            enum:
+            - joiner.joined
+          event_id:
+            type: integer
+            minimum: 1
+          location_id:
+            oneOf:
+            - type: integer
+              minimum: 1
+            - type: 'null'
+          payload:
+            $ref: '#/components/schemas/JoinerChangePayload'
+    JoinerLeftNotification:
+      allOf:
+      - $ref: '#/components/schemas/RealtimeEnvelope'
+      - type: object
+        required:
+        - type
+        - event_id
+        - location_id
+        - payload
+        properties:
+          type:
+            type: string
+            enum:
+            - joiner.left
+          event_id:
+            type: integer
+            minimum: 1
+          location_id:
+            oneOf:
+            - type: integer
+              minimum: 1
+            - type: 'null'
+          payload:
+            $ref: '#/components/schemas/JoinerChangePayload'
+    Event:
+      type: object
+      additionalProperties: false
+      required:
+      - id
+      - title
+      - organizer
+      - organizer_id
+      - duration_in_minutes
+      - location_id
+      - scheduled_at
+      - status
+      - canceled_at
+      - deletion_scheduled_at
+      properties:
+        id:
+          type: integer
+          minimum: 1
+        title:
+          type: string
+          maxLength: 250
+        organizer:
+          type: string
+          maxLength: 64
+        organizer_id:
+          type: integer
+          minimum: 1
+        duration_in_minutes:
+          type: integer
+          minimum: 1
+        location_id:
+          type: integer
+          minimum: 1
+        scheduled_at:
+          oneOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+        status:
+          type: string
+          enum:
+          - active
+          - canceled
+        canceled_at:
+          oneOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+        deletion_scheduled_at:
+          oneOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+    Location:
+      type: object
+      additionalProperties: false
+      required:
+      - id
+      - name
+      - address
+      - country
+      - city
+      - postal_code
+      - coordinates
+      - created_at
+      properties:
+        id:
+          type: integer
+          minimum: 1
+        name:
+          oneOf:
+          - type: string
+            maxLength: 200
+          - type: 'null'
+        address:
+          oneOf:
+          - type: string
+            maxLength: 500
+          - type: 'null'
+        country:
+          oneOf:
+          - type: string
+            minLength: 2
+            maxLength: 2
+          - type: 'null'
+        city:
+          oneOf:
+          - type: string
+            maxLength: 200
+          - type: 'null'
+        postal_code:
+          oneOf:
+          - type: string
+            maxLength: 32
+          - type: 'null'
+        coordinates:
+          oneOf:
+          - $ref: '#/components/schemas/GeoPoint'
+          - type: 'null'
+        created_at:
+          oneOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+    GeoPoint:
+      type: object
+      additionalProperties: false
+      required:
+      - latitude
+      - longitude
+      properties:
+        latitude:
+          type: number
+          minimum: -90
+          maximum: 90
+        longitude:
+          type: number
+          minimum: -180
+          maximum: 180
+    JoinerChangePayload:
+      type: object
+      additionalProperties: false
+      required:
+      - joiner
+      - joiners_count
+      properties:
+        joiner:
+          $ref: '#/components/schemas/Joiner'
+        joiners_count:
+          type: integer
+          minimum: 0
+          description: Number of active joiners after the operation completed.
+    Joiner:
+      type: object
+      additionalProperties: false
+      required:
+      - id
+      - user_id
+      - user_name
+      - event_id
+      - joined_at
+      - left_at
+      properties:
+        id:
+          type: integer
+          minimum: 1
+        user_id:
+          type: integer
+          minimum: 1
+        user_name:
+          type: string
+          maxLength: 64
+        event_id:
+          type: integer
+          minimum: 1
+        joined_at:
+          oneOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+        left_at:
+          oneOf:
+          - type: string
+            format: date-time
+          - type: 'null'
