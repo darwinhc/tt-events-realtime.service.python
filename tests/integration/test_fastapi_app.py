@@ -411,6 +411,8 @@ def test_joins_and_leaves_event(client) -> None:
 def test_only_organizer_can_update_event(application) -> None:
     client = TestClient(create_fastapi_app(application))
     now = datetime(2026, 8, 20, 12, tzinfo=timezone.utc)
+    # Goes through the real clock, so the new date must stay in the future.
+    new_day = (datetime.now(timezone.utc) + timedelta(days=30)).date()
     first_location = application.create_location(
         location=Location(address="Original place", created_at=now)
     )
@@ -438,7 +440,7 @@ def test_only_organizer_can_update_event(application) -> None:
         headers={"Authorization": "Bearer darwin"},
         json={
             "title": "Updated event",
-            "scheduled_at": "2026-09-01T20:00:00+02:00",
+            "scheduled_at": f"{new_day.isoformat()}T20:00:00+02:00",
             "duration_in_minutes": 90,
             "location_id": second_location.id,
         },
@@ -449,7 +451,7 @@ def test_only_organizer_can_update_event(application) -> None:
     assert updated.status_code == 200
     assert updated.json()["title"] == "Updated event"
     assert updated.json()["organizer"] == "darwin"
-    assert updated.json()["scheduled_at"] == "2026-09-01T18:00:00Z"
+    assert updated.json()["scheduled_at"] == f"{new_day.isoformat()}T18:00:00Z"
     assert updated.json()["duration_in_minutes"] == 90
     assert updated.json()["location_id"] == second_location.id
 

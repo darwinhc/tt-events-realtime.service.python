@@ -1,5 +1,8 @@
 """Create-event use case."""
 
+from datetime import datetime, timezone
+from typing import Callable
+
 from src.domain.use_cases.events.verify_event_dates import verify_event_dates_consistency
 from src.domain.entities import Event, EventStatus, RealtimeEvent
 from src.domain.exceptions import DomainValidationError
@@ -18,6 +21,7 @@ def create_event(
     authentication: AuthenticationPort,
     deletion_delay_when_no_date_in_minutes: int = 7*24*60,
     realtime: RealtimeEventPublisher = NullRealtimeEventPublisher(),
+    clock: Callable[[], datetime] = lambda: datetime.now(timezone.utc),
 ) -> Event:
     """Create an event with an optional date-to-be-defined schedule."""
     if event.location_id is None or event.location is not None:
@@ -40,7 +44,7 @@ def create_event(
         deletion_delay_when_no_date_in_minutes=deletion_delay_when_no_date_in_minutes
     )
 
-    verify_event_dates_consistency(_event)
+    verify_event_dates_consistency(_event, clock())
     created_event = events.create(_event)
     realtime.publish(
         RealtimeEvent(

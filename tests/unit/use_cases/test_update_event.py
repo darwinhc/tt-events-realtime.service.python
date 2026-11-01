@@ -79,6 +79,7 @@ def test_organizer_updates_editable_fields_and_recalculates_deletion() -> None:
         authentication=FakeAuthentication(),
         deletion_delay_when_no_date_in_minutes=7*60*24,
         realtime=publisher,
+        clock=lambda: datetime(2026, 8, 20, 12, tzinfo=timezone.utc),
     )
 
     assert result.title == "Updated title"

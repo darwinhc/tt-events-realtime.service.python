@@ -1,16 +1,15 @@
 """Verify event dates."""
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta
 
 from src.domain.entities import Event
 from src.domain.exceptions import DomainValidationError
 
 
-def verify_event_dates_consistency(event: Event) -> None:
-    """Verify that the event has a valid date range."""
+def verify_event_dates_consistency(event: Event, now: datetime) -> None:
+    """Verify that the event has a valid date range relative to ``now``."""
     if event.deletion_scheduled_at is None:
         raise DomainValidationError("Event must have a deletion date.")
 
-    now = datetime.now(timezone.utc)
     if (
         event.scheduled_at is not None
         and event.scheduled_at + timedelta(minutes=event.duration_in_minutes) < now

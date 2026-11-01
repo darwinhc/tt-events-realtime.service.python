@@ -1,5 +1,8 @@
 """Update-event use case."""
 
+from datetime import datetime, timezone
+from typing import Callable
+
 from src.domain.use_cases.events.verify_event_dates import verify_event_dates_consistency
 from src.domain.dtos import EventUpdate
 from src.domain.entities import Event, EventStatus, RealtimeEvent
@@ -26,6 +29,7 @@ def update_event(
     deletion_delay_when_no_date_in_minutes: int,
     authentication: AuthenticationPort,
     realtime: RealtimeEventPublisher = NullRealtimeEventPublisher(),
+    clock: Callable[[], datetime] = lambda: datetime.now(timezone.utc),
 ) -> Event:
     """Update an active event when the actor is its organizer."""
     event = events.get_by_id(event_id)
@@ -59,7 +63,7 @@ def update_event(
         }
     ).schedule_deletion_after_event(deletion_delay_minutes, deletion_delay_when_no_date_in_minutes)
 
-    verify_event_dates_consistency(updated_event)
+    verify_event_dates_consistency(updated_event, clock())
 
     persisted_event = events.update(updated_event)
     realtime.publish(

@@ -1,6 +1,6 @@
 """Create-event use-case tests."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 from src.domain.dtos import EventFilters
 from src.domain.entities import Event
@@ -63,6 +63,7 @@ def test_create_event_uses_injected_port() -> None:
         events=repository,
         deletion_delay_minutes=7*24*60,
         authentication=FakeAuthentication(),
+        clock=lambda: datetime(2026, 8, 20, 12, tzinfo=timezone.utc),
     )
 
     assert isinstance(result, Event)
